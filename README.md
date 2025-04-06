@@ -4,7 +4,7 @@ A Visual Studio Code extension that automatically formats any text or code based
 
 It expands condensed code into a readable, multi-line structure with proper indentation whenever an opening bracket is detected.
 
-![Decondenser](media/decondenser.gif)
+![Decondenser](assets/demo.gif)
 
 ## Features
 

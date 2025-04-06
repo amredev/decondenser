@@ -1,8 +1,13 @@
 {
     "name": "decondenser",
     "displayName": "Decondenser",
+    "publisher": "nitkach",
+    "icon": "assets/marketplace-icon.png",
     "description": "A Visual Studio Code extension that automatically formats code based on bracket placement ({}, [], ()). It expands condensed code into a readable, multi-line structure with proper indentation whenever an opening bracket is detected.",
-    "repository": {},
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/nitkach/decondenser.git"
+    },
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.97.0"
