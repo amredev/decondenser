@@ -1,20 +1,23 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
     function addCommand(command: string, action: () => void) {
-        const registeredCommand = vscode.commands.registerCommand(command, action);
+        const registeredCommand = vscode.commands.registerCommand(
+            command,
+            action,
+        );
         context.subscriptions.push(registeredCommand);
     }
 
-    addCommand('decondenser.bracketsPrettify', () => {
+    addCommand("decondenser.bracketsPrettify", () => {
         bracketsPrettify(false);
     });
 
-    addCommand('decondenser.bracketsPrettify.unescape', () => {
+    addCommand("decondenser.bracketsPrettify.unescape", () => {
         bracketsPrettify(true);
     });
 }
@@ -29,7 +32,10 @@ function bracketsPrettify(unescape: boolean) {
     if (!editor.selection || editor.selection.isEmpty) {
         const firstLine = editor.document.lineAt(0);
         const lastLine = editor.document.lineAt(editor.document.lineCount - 1);
-        selection = new vscode.Selection(firstLine.range.start, lastLine.range.end);
+        selection = new vscode.Selection(
+            firstLine.range.start,
+            lastLine.range.end,
+        );
     } else {
         selection = editor.selection;
     }
@@ -46,7 +52,9 @@ function bracketsPrettify(unescape: boolean) {
         text = uglyText;
     }
 
-    const indentationSize = vscode.workspace.getConfiguration("decondenser").get("indentationSize");
+    const indentationSize = vscode.workspace
+        .getConfiguration("decondenser")
+        .get("indentationSize");
     let prettyText;
     if (typeof indentationSize === "number") {
         const indentation = " ".repeat(indentationSize);
@@ -130,7 +138,11 @@ export function formatUglyText(input: string, indentation: string): string {
     let indentLevel = 0;
 
     function pushAfterCommaAndIndent(character: string): string[] {
-        return output.concat([",\n", createIndentation(indentLevel), character]);
+        return output.concat([
+            ",\n",
+            createIndentation(indentLevel),
+            character,
+        ]);
     }
 
     function createIndentation(indentLevel: number): string {
@@ -163,39 +175,41 @@ export function formatUglyText(input: string, indentation: string): string {
                         output = pushAfterCommaAndIndent("\\");
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
             }
 
-            case "\"": {
+            case '"': {
                 switch (state) {
                     case State.Start: {
                         // start of the string
                         state = State.String;
-                        output.push("\"");
+                        output.push('"');
                         break;
                     }
                     case State.String: {
                         // end of the string
                         state = State.Start;
-                        output.push("\"");
+                        output.push('"');
                         break;
                     }
                     case State.Escape: {
                         // escaped " in string
                         state = State.String;
-                        output.push("\"");
+                        output.push('"');
                         break;
                     }
                     case State.AfterComma: {
                         // met " after comma
                         state = State.String;
-                        output = pushAfterCommaAndIndent("\"");
+                        output = pushAfterCommaAndIndent('"');
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
@@ -219,7 +233,8 @@ export function formatUglyText(input: string, indentation: string): string {
                     case State.AfterComma: {
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
@@ -244,7 +259,8 @@ export function formatUglyText(input: string, indentation: string): string {
                         output.push(",");
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
@@ -256,7 +272,11 @@ export function formatUglyText(input: string, indentation: string): string {
                 switch (state) {
                     case State.Start: {
                         indentLevel = indentLevel + 1;
-                        output = output.concat([char, "\n", createIndentation(indentLevel)]);
+                        output = output.concat([
+                            char,
+                            "\n",
+                            createIndentation(indentLevel),
+                        ]);
                         break;
                     }
                     case State.String: {
@@ -272,10 +292,14 @@ export function formatUglyText(input: string, indentation: string): string {
                         state = State.Start;
                         output = pushAfterCommaAndIndent(char);
                         indentLevel = indentLevel + 1;
-                        output = output.concat(["\n", createIndentation(indentLevel)]);
+                        output = output.concat([
+                            "\n",
+                            createIndentation(indentLevel),
+                        ]);
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
@@ -287,7 +311,11 @@ export function formatUglyText(input: string, indentation: string): string {
                 switch (state) {
                     case State.Start: {
                         indentLevel = indentLevel - 1;
-                        output = output.concat(["\n", createIndentation(indentLevel), char]);
+                        output = output.concat([
+                            "\n",
+                            createIndentation(indentLevel),
+                            char,
+                        ]);
                         break;
                     }
                     case State.String: {
@@ -302,10 +330,15 @@ export function formatUglyText(input: string, indentation: string): string {
                     case State.AfterComma: {
                         state = State.Start;
                         indentLevel = indentLevel - 1;
-                        output = output.concat(["\n", createIndentation(indentLevel), char]);
+                        output = output.concat([
+                            "\n",
+                            createIndentation(indentLevel),
+                            char,
+                        ]);
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
 
                 break;
@@ -331,7 +364,8 @@ export function formatUglyText(input: string, indentation: string): string {
                         output = pushAfterCommaAndIndent(char);
                         break;
                     }
-                    default: state satisfies never;
+                    default:
+                        state satisfies never;
                 }
             }
         }
@@ -341,4 +375,4 @@ export function formatUglyText(input: string, indentation: string): string {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() { }
+export function deactivate() {}

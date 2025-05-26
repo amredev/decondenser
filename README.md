@@ -14,4 +14,4 @@ It expands condensed code into a readable, multi-line structure with proper inde
 
 ## Extension Settings
 
-* `decondenser.indentationSize`: Set the number of spaces used for indentation.
+- `decondenser.indentationSize`: Set the number of spaces used for indentation.
