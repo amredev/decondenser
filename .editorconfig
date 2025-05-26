@@ -25,5 +25,5 @@ trim_trailing_whitespace = true
 # https://github.com/foxundermoon/vs-shell-format/issues/371
 switch_case_indent = true
 
-[*.yml]
+[*.{yml,json}]
 indent_size = 2

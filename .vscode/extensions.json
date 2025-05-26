@@ -1,6 +1,6 @@
 {
   "recommendations": [
     // This is a UI extension, so you need to install it manually
-    "amodio.tsl-problem-matcher"
+    "connor4312.esbuild-problem-matchers"
   ]
 }
