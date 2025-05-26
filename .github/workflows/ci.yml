@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/amredev/devcontainer-decondenser:latest
-      options: --user amredev
+      options: --user 0
 
     steps:
       - uses: actions/checkout@v4
