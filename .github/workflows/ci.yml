@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - run: npm ci
       - run: npm run package
       - run: npm run compile-tests
       - run: npm run test
