@@ -1,0 +1,15 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/amredev/devcontainer-decondenser:latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run package
+      - run: npm run compile-tests
+      - run: npm run test

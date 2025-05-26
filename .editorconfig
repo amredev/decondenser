@@ -5,7 +5,7 @@ charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 indent_style = space
-indent_size = 2
+indent_size = 4
 trim_trailing_whitespace = true
 
 # These configurations are recognized by `shfmt`:
@@ -25,8 +25,5 @@ trim_trailing_whitespace = true
 # https://github.com/foxundermoon/vs-shell-format/issues/371
 switch_case_indent = true
 
-[*.sh]
-indent_size = 4
-
-[package-lock.json]
-indent_size = 4
+[*.yml]
+indent_size = 2
