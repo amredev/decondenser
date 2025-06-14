@@ -1,7 +1,7 @@
 [package]
-name    = "decondenser"
-version = "0.1.0"
 description = "Pretty-print any text based on brackets nesting"
+name        = "decondenser"
+version     = "0.1.0"
 
 # We may consider publishing this crate if people want to use it as a library.
 # So if you (yes you!, the one reading this comment), want to use this crate as
@@ -19,4 +19,9 @@ repository = { workspace = true }
 workspace = true
 
 [dependencies]
-# This kid is independent 😎
+allman = { git = "https://github.com/mcy/strings.git", rev="94e327ac7c4150be9903063b1996f81041baf107" }
+
+[dev-dependencies]
+expect-test = "1.5"
+serde_json  = "1.0"
+toml_edit   = "0.22"

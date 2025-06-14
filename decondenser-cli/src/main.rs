@@ -31,7 +31,7 @@ fn try_main() -> Result {
             .with_context(|| format!("Failed to read file '{}'", cli.input))?
     };
 
-    let output = decondenser::decondense(&input, &cli.indent);
+    let output = decondenser::Decondenser::generic().decondense(&input)?;
 
     if cli.output == "-" {
         println!("{output}");

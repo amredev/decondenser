@@ -1,3 +1,5 @@
+use bindings::exports::decondenser as wit;
+
 /// The bindings are generated via `cargo component`:
 /// <https://github.com/bytecodealliance/cargo-component>
 #[allow(warnings)]
@@ -9,8 +11,8 @@ struct Component;
 
 bindings::export!(Component with_types_in bindings);
 
-impl bindings::Guest for Component {
-    fn unescape(input: String) -> String {
+impl wit::Guest for Component {
+    fn unescape(input: wit::UnescapeParams) -> wit::DecondenseOutput {
         decondenser::unescape(&input)
     }
 

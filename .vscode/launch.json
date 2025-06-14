@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Extension",
+      "name": "VSCode extension",
       "type": "extensionHost",
       "request": "launch",
       "args": [
@@ -10,6 +10,19 @@
       ],
       "outFiles": ["${workspaceFolder}/decondenser-vscode/dist/**/*.js"],
       "preLaunchTask": "${defaultBuildTask}"
+    },
+    {
+      "name": "CLI",
+      "type": "lldb",
+      "request": "launch",
+      "sourceLanguages": ["rust"],
+      "cargo": {
+        "env": {
+          "CARGO_PROFILE_DEV_DEBUG": "true"
+        },
+        "args": ["build", "-p", "decondenser-cli"]
+      },
+      "args": ["--input", "dbg.md"]
     }
   ]
 }

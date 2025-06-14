@@ -1,6 +1,24 @@
 package amredev:decondenser;
 
 world decondenser {
-    export unescape: func(input: string) -> string;
-    export decondense: func(input: string, indent: string) -> string;
+    export decondenser: interface {
+        unescape: func(params: unescape-params) -> unescape-output;
+        record unescape-params {
+            input: string,
+            mappings: list<tuple<string, string>>,
+        }
+        record unescape-output {
+            output: string,
+        }
+
+        decondense: func(params: decondense-params) -> decondense-output;
+        record decondense-params {
+            input: string,
+            indent: string,
+            mappings: list<tuple<string, string>>,
+        }
+        record decondense-output {
+            output: string,
+        }
+    }
 }
