@@ -34,8 +34,16 @@ struct Parser<'a> {
 
 impl Parser<'_> {
     fn parse(&mut self, terminator: Option<&Str<'_>>) -> Option<usize> {
-        while self.cursor.peek().is_some() {
-            self.whitespace();
+        while let Some(char) = self.cursor.peek() {
+            if char.is_whitespace() {
+                if !matches!(self.output.last(), Some(AstNode::Space { .. })) {
+                    let start = self.cursor.byte_offset();
+                    self.output.push(AstNode::Space { start });
+                }
+
+                self.cursor.next();
+                continue;
+            }
 
             if let Some(start) = terminator.and_then(|term| self.cursor.strip_prefix(term)) {
                 return Some(start);
@@ -130,25 +138,5 @@ impl Parser<'_> {
         };
 
         self.output.push(AstNode::Quoted(quoted));
-    }
-
-    fn whitespace(&mut self) {
-        let Some(char) = self.cursor.peek() else {
-            return;
-        };
-
-        if !char.is_whitespace() {
-            return;
-        }
-
-        let start = self.cursor.byte_offset();
-        self.output.push(AstNode::Whitespace { start });
-
-        while let Some(char) = self.cursor.peek() {
-            if !char.is_whitespace() {
-                return;
-            }
-            self.cursor.next();
-        }
     }
 }

@@ -12,6 +12,10 @@
   "workspaceFolder": "/home/amredev/dev/decondenser",
   "overrideCommand": false,
 
+  // Required for the Rust debugger
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+
   "containerEnv": {
     "HOST_WORKSPACE": "${localWorkspaceFolder}"
   },

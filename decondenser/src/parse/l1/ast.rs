@@ -1,16 +1,29 @@
-#[derive(Debug)]
+use std::fmt;
+
 pub(crate) enum AstNode {
-    Whitespace { start: usize },
+    Space { start: usize },
     Raw { start: usize },
     Punct { start: usize },
     Group(Group),
     Quoted(Quoted),
 }
 
+impl fmt::Debug for AstNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AstNode::Space { start } => write!(f, "space {start}"),
+            AstNode::Raw { start } => write!(f, "raw {start}"),
+            AstNode::Punct { start } => write!(f, "punct {start}"),
+            AstNode::Group(group) => write!(f, "group{group:#?}"),
+            AstNode::Quoted(quoted) => write!(f, "quoted{quoted:#?}"),
+        }
+    }
+}
+
 impl AstNode {
     pub(crate) fn start(&self) -> usize {
         match self {
-            AstNode::Whitespace { start } => *start,
+            AstNode::Space { start } => *start,
             AstNode::Raw { start } => *start,
             AstNode::Punct { start } => *start,
             AstNode::Group(group) => group.opening,
@@ -19,7 +32,6 @@ impl AstNode {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct Quoted {
     /// Offset of the opening quote
     pub(crate) opening: usize,
@@ -34,10 +46,30 @@ pub(crate) struct Quoted {
     pub(crate) closing: Option<usize>,
 }
 
-#[derive(Debug)]
+impl fmt::Debug for Quoted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "({} -> {:?}) {:?}",
+            self.opening,
+            MaybeUsize(self.closing),
+            self.content
+        )
+    }
+}
+
 pub(crate) enum QuotedContent {
     Raw { start: usize },
     Escape { start: usize },
+}
+
+impl fmt::Debug for QuotedContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QuotedContent::Raw { start } => write!(f, "qr:{start}"),
+            QuotedContent::Escape { start } => write!(f, "qe:{start}"),
+        }
+    }
 }
 
 impl QuotedContent {
@@ -49,7 +81,6 @@ impl QuotedContent {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct Group {
     /// The start offset of the opening delimiter
     pub(crate) opening: usize,
@@ -61,4 +92,27 @@ pub(crate) struct Group {
     /// Offset of the closing delimiter. Can be `None` if the group is not closed
     /// (probably a malformed input).
     pub(crate) closing: Option<usize>,
+}
+
+impl fmt::Debug for Group {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "({} -> {:?}) {:#?}",
+            self.opening,
+            MaybeUsize(self.closing),
+            self.content
+        )
+    }
+}
+
+struct MaybeUsize(Option<usize>);
+
+impl fmt::Debug for MaybeUsize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            Some(num) => write!(f, "{num}"),
+            None => f.write_str("{none]"),
+        }
+    }
 }

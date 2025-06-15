@@ -32,7 +32,7 @@ pub struct Decondenser<'a> {
     /// Max number of characters per line.
     ///
     /// The width of each character is measured with the `unicode_width` crate.
-    pub max_width: usize,
+    pub max_line_width: usize,
 
     /// Groups of sequences used to nest content.
     pub groups: &'a [GroupConfig<'a>],
@@ -48,8 +48,8 @@ impl Decondenser<'_> {
     pub fn generic() -> Decondenser<'static> {
         const {
             Decondenser {
-                max_width: 80,
-                indent: Str::borrowed("  "),
+                max_line_width: 80,
+                indent: Str::borrowed("    "),
                 groups: &[
                     GroupConfig {
                         opening: Str::borrowed("("),

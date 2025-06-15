@@ -18,8 +18,12 @@ repository = { workspace = true }
 [lints]
 workspace = true
 
+[features]
+default        = []
+unstable_debug = []
+
 [dependencies]
-allman = { git = "https://github.com/mcy/strings.git", rev="94e327ac7c4150be9903063b1996f81041baf107" }
+# unicode-width = "0.2.1"
 
 [dev-dependencies]
 expect-test = "1.5"

@@ -1,4 +1,5 @@
 use crate::parse;
+use crate::printer::Printer;
 use crate::{Result, Str};
 use std::path::PathBuf;
 
@@ -11,62 +12,53 @@ impl crate::Decondenser<'_> {
             config: self,
         });
 
-        let mut formatter = allman::Doc::new();
+        dbg!(&ast);
 
-        Self::configure_formatter(&mut formatter, &ast);
+        let mut printer = Printer::new(self);
 
-        dbg!(&formatter);
+        printer.begin_consistent(0);
+        self.print(&mut printer, &ast);
+        printer.scan_end();
 
-        let mut output = vec![];
-
-        formatter.render(
-            &mut output,
-            &allman::Options {
-                max_columns: self.max_width,
-            },
-        );
-
-        let output = String::from_utf8_lossy(&output).into_owned();
-
-        Ok(output)
+        Ok(printer.eof())
     }
 
-    fn configure_formatter<'a>(doc: &mut allman::Doc<'a>, nodes: &[parse::l2::AstNode<'a>]) {
-        use allman::{Doc, If, Tag};
-
+    fn print<'a>(&self, printer: &mut Printer<'a>, nodes: &[parse::l2::AstNode<'a>]) {
         for node in nodes {
             match node {
-                &parse::l2::AstNode::Whitespace(content) => {
-                    doc.tag(Tag::Space);
+                &parse::l2::AstNode::Space(content) => {
+                    printer.nbsp();
                 }
                 &parse::l2::AstNode::Raw(content) => {
-                    doc.tag(Tag::Text(content.into()));
+                    printer.scan_string(content.into());
                 }
                 &parse::l2::AstNode::Punct(content) => {
-                    doc.tag(Tag::Text(content.into()));
+                    printer.scan_string(content.into());
+                    if content == "," {
+                        printer.space();
+                    }
                 }
                 parse::l2::AstNode::Group(group) => {
-                    doc.tag_with(Tag::Group(usize::MAX), |doc| {
-                        doc.tag(Tag::Text(group.opening.into()));
-                        doc.tag_if(Tag::Break(1), If::Broken);
-                        doc.tag_with(Tag::Indent(1), |formatter| {
-                            Self::configure_formatter(formatter, &group.content);
-                        });
-                        if let Some(closing) = group.closing {
-                            doc.tag_if(Tag::Break(1), If::Broken);
-                            doc.tag(Tag::Text(closing.into()));
-                        }
-                    });
+                    printer.scan_string(group.opening.into());
+                    printer.begin_consistent(self.indent.len() as isize);
+                    printer.space_if_nonempty();
+                    self.print(printer, &group.content);
+                    printer.space();
+                    printer.offset(-(self.indent.len() as isize));
+                    printer.scan_end();
+                    if let Some(closing) = group.closing {
+                        printer.scan_string(closing.into());
+                    }
                 }
                 parse::l2::AstNode::Quoted(quoted) => {
-                    doc.tag(Tag::Text(quoted.opening.into()));
+                    printer.scan_string(quoted.opening.into());
 
                     for content in &quoted.content {
-                        doc.tag(Tag::Text(content.text().into()));
+                        printer.scan_string(content.text().into());
                     }
 
                     if let Some(closing) = quoted.closing {
-                        doc.tag(Tag::Text(closing.into()));
+                        printer.scan_string(closing.into());
                     }
                 }
             }

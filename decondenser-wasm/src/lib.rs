@@ -12,11 +12,16 @@ struct Component;
 bindings::export!(Component with_types_in bindings);
 
 impl wit::Guest for Component {
-    fn unescape(input: wit::UnescapeParams) -> wit::DecondenseOutput {
-        decondenser::unescape(&input)
+    fn unescape(input: wit::UnescapeParams) -> wit::UnescapeOutput {
+        todo!()
+        // decondenser::Decondenser::generic().unescape(&input)
     }
 
-    fn decondense(input: String, indent: String) -> String {
-        decondenser::decondense(&input, &indent)
+    fn decondense(params: wit::DecondenseParams) -> wit::DecondenseOutput {
+        let output = decondenser::Decondenser::generic()
+            .decondense(&params.input)
+            .unwrap();
+
+        wit::DecondenseOutput { output }
     }
 }

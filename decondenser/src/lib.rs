@@ -8,6 +8,7 @@ mod decondense;
 mod decondenser;
 mod error;
 mod parse;
+mod printer;
 mod str;
 mod unescape;
 

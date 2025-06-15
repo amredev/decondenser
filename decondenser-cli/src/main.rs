@@ -31,7 +31,10 @@ fn try_main() -> Result {
             .with_context(|| format!("Failed to read file '{}'", cli.input))?
     };
 
-    let output = decondenser::Decondenser::generic().decondense(&input)?;
+    let mut decondenser = decondenser::Decondenser::generic();
+    decondenser.max_line_width = cli.max_line_width;
+
+    let output = decondenser.decondense(&input)?;
 
     if cli.output == "-" {
         println!("{output}");
@@ -57,4 +60,8 @@ struct Cli {
     /// Indentation string to use for pretty-printing
     #[clap(long, default_value = "    ")]
     indent: String,
+
+    /// Maximum width of a line before wrapping
+    #[clap(long, default_value_t = 80)]
+    max_line_width: usize,
 }
