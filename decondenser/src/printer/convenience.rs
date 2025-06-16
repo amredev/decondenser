@@ -1,21 +1,21 @@
 //! This code was originally adapted from the other codebase. See the parent
 //! module's doc comment for more references.
 
-use super::{BeginToken, BreakToken, Breaks, Printer, SIZE_INFINITY};
+use super::{BeginToken, BreakKind, BreakToken, Printer, SIZE_INFINITY};
 use std::borrow::Cow;
 
 impl Printer<'_> {
     pub(crate) fn begin_inconsistent(&mut self, indent: isize) {
         self.scan_begin(BeginToken {
             offset: indent,
-            breaks: Breaks::Inconsistent,
+            break_kind: BreakKind::Inconsistent,
         });
     }
 
     pub(crate) fn begin_consistent(&mut self, indent: isize) {
         self.scan_begin(BeginToken {
             offset: indent,
-            breaks: Breaks::Consistent,
+            break_kind: BreakKind::Consistent,
         });
     }
 
@@ -61,31 +61,6 @@ impl Printer<'_> {
             if_nonempty: true,
             ..BreakToken::default()
         });
-    }
-
-    pub(crate) fn trailing_comma(&mut self, is_last: bool) {
-        if is_last {
-            self.scan_break(BreakToken {
-                pre_break: Some(','),
-                ..BreakToken::default()
-            });
-        } else {
-            self.word(",");
-            self.space();
-        }
-    }
-
-    pub(crate) fn trailing_comma_or_space(&mut self, is_last: bool) {
-        if is_last {
-            self.scan_break(BreakToken {
-                blank_space: 1,
-                pre_break: Some(','),
-                ..BreakToken::default()
-            });
-        } else {
-            self.word(",");
-            self.space();
-        }
     }
 
     pub(crate) fn neverbreak(&mut self) {

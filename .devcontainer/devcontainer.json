@@ -45,6 +45,7 @@
         // preinstalled with VSCode
         "typescript.tsdk": "node_modules/typescript/lib",
 
+        "rust-analyzer.check.command": "clippy",
         "rust-analyzer.server.extraEnv": {
           // Use a system-wide target directory dedicated for rust-analyzer.
           // This way RA never blocks builds by locking the local target directory.

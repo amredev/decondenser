@@ -12,8 +12,6 @@ impl crate::Decondenser<'_> {
             config: self,
         });
 
-        dbg!(&ast);
-
         let mut printer = Printer::new(self);
 
         printer.begin_consistent(0);

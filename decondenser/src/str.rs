@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::ops::Deref;
 
 /// A borrowed or an owned string.
+#[derive(Debug)]
 pub struct Str<'a> {
     inner: Cow<'a, str>,
 }

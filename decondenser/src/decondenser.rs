@@ -42,12 +42,20 @@ pub struct Decondenser<'a> {
 
     /// Punctuation sequences used to separate content.
     pub puncts: &'a [Str<'a>],
+
+    /// Output control characters for debugging the layout logic
+    pub debug_layout: bool,
+
+    /// Output indentation characters for debugging the indent logic
+    pub debug_indent: bool,
 }
 
 impl Decondenser<'_> {
     pub fn generic() -> Decondenser<'static> {
         const {
             Decondenser {
+                debug_indent: false,
+                debug_layout: false,
                 max_line_width: 80,
                 indent: Str::borrowed("    "),
                 groups: &[

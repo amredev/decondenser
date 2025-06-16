@@ -4,7 +4,7 @@
 use std::collections::VecDeque;
 use std::ops::{Index, IndexMut, Range};
 
-#[cfg_attr(decondenser_debug_impls, derive(Debug))]
+#[derive(Debug)]
 pub(super) struct RingBuffer<T> {
     data: VecDeque<T>,
     // Abstract index of data[0] in infinitely sized queue

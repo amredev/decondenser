@@ -33,8 +33,21 @@ fn try_main() -> Result {
 
     let mut decondenser = decondenser::Decondenser::generic();
     decondenser.max_line_width = cli.max_line_width;
+    decondenser.debug_indent = cli.debug_indent;
+    decondenser.debug_layout = cli.debug_layout;
 
     let output = decondenser.decondense(&input)?;
+
+    if cli.debug_line_width {
+        let max_width = output
+            .lines()
+            // TODO: use `unicode-width` crate
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0);
+
+        eprintln!("Max line width: {max_width}");
+    }
 
     if cli.output == "-" {
         println!("{output}");
@@ -64,4 +77,25 @@ struct Cli {
     /// Maximum width of a line before wrapping
     #[clap(long, default_value_t = 80)]
     max_line_width: usize,
+
+    /// Only used for debugging by the decondenser developers.
+    ///
+    /// Enables outputting of the layout control characters.
+    #[clap(long, hide = true)]
+    debug_layout: bool,
+
+    /// Only used for debugging by the decondenser developers.
+    ///
+    /// Enables outputting of the indent control characters.
+    #[clap(long, hide = true)]
+    debug_indent: bool,
+
+    /// Show the line width in the output.
+    #[clap(
+        long,
+        hide = true,
+        conflicts_with = "debug_layout",
+        conflicts_with = "debug_indent"
+    )]
+    debug_line_width: bool,
 }
