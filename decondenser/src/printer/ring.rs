@@ -54,16 +54,16 @@ impl<T> RingBuffer<T> {
         self.data.pop_front().unwrap()
     }
 
-    pub(super) fn last(&self) -> &T {
-        self.data.back().unwrap()
+    pub(super) fn last(&self) -> Option<&T> {
+        self.data.back()
     }
 
     pub(super) fn last_mut(&mut self) -> &mut T {
         self.data.back_mut().unwrap()
     }
 
-    pub(super) fn second_last(&self) -> &T {
-        &self.data[self.data.len() - 2]
+    pub(super) fn second_last(&self) -> Option<&T> {
+        self.data.get(self.data.len() - 2)
     }
 
     pub(super) fn pop_last(&mut self) {

@@ -22,7 +22,7 @@
         },
         "args": ["build", "-p", "decondenser-cli"]
       },
-      "args": ["--input", "dbg.md"]
+      "args": ["--input", "dbg.md", "--line-size", "62"]
     }
   ]
 }

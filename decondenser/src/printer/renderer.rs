@@ -1,5 +1,8 @@
-use super::{BeginToken, BreakKind, BreakToken, MIN_SPACE, SIZE_INFINITY};
+use super::{BeginToken, BreakToken, BreaksKind, SIZE_INFINITY};
 use crate::Decondenser;
+
+/// Every line is allowed at least this much space, even if highly indented.
+const MIN_SPACE: isize = 60;
 
 #[derive(Debug, Copy, Clone)]
 enum LineFit {
@@ -16,21 +19,21 @@ enum LineFit {
 #[derive(Debug, Clone, Copy)]
 struct Group {
     line_fit: LineFit,
-    break_kind: BreakKind,
+    breaks_kind: BreaksKind,
 }
 
 impl Group {
-    fn new(line_fit: LineFit, break_kind: BreakKind) -> Self {
+    fn new(line_fit: LineFit, breaks_kind: BreaksKind) -> Self {
         Self {
             line_fit,
-            break_kind,
+            breaks_kind,
         }
     }
 }
 
 #[derive(Debug)]
 struct RendererConfig {
-    max_line_width: usize,
+    line_size: usize,
 
     /// Output control characters for debugging the layout logic
     debug_layout: bool,
@@ -48,14 +51,26 @@ pub(super) struct Renderer {
     /// Output string being built
     pub(super) output: String,
 
-    /// Number of spaces left on line
-    pub(super) space: isize,
+    /// Spare budget of size left on the current line.
+    ///
+    /// Can be negative if the last printed token was larger than a the
+    /// [`RendererConfig::line_size`] limit, and all possible breaks on the left
+    /// side of that could be done were already done. I.e. - there is no way to
+    /// fit the token into the limit without breaking somewhere in the middle of
+    /// some token, which is not allowed.
+    pub(super) line_size_budget: isize,
 
-    /// Level of indentation of current line
+    /// Number of spaces for indenting the current line
     indent: usize,
 
-    /// Buffered indentation to avoid writing trailing whitespace
-    pending_indent: usize,
+    /// If we were to eagerly push space in [`Self::print_break()`], we could
+    /// leave unnecessary trailing spaces if the output just cuts off after the
+    /// last break.
+    ///
+    /// So, instead of pushing the space immediately, we just increase this
+    /// counter so that next time a non-space token is printed it is prefixed
+    /// with the pending amount spaces.
+    pending_spaces: usize,
 
     /// Stack of groups-in-progress being flushed by print
     groups: Vec<Group>,
@@ -65,23 +80,23 @@ impl Renderer {
     pub(super) fn new(config: &Decondenser<'_>) -> Self {
         Self {
             config: RendererConfig {
-                max_line_width: config.max_line_width,
+                line_size: config.line_size,
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
             },
             output: String::new(),
-            space: config.max_line_width.try_into().unwrap_or(SIZE_INFINITY),
+            line_size_budget: config.line_size.try_into().unwrap_or(SIZE_INFINITY),
             indent: 0,
-            pending_indent: 0,
+            pending_spaces: 0,
             groups: Vec::new(),
         }
     }
 
     pub(super) fn print_begin(&mut self, token: &BeginToken, size: isize) {
         if self.config.debug_layout {
-            self.output.push(match token.break_kind {
-                BreakKind::Consistent => '«',
-                BreakKind::Inconsistent => '‹',
+            self.output.push(match token.breaks_kind {
+                BreaksKind::Consistent => '«',
+                BreaksKind::Inconsistent => '‹',
             });
         }
 
@@ -105,8 +120,8 @@ impl Renderer {
             self.output.extend(chars);
         }
 
-        if size <= self.space {
-            let group = Group::new(LineFit::Fits, token.break_kind);
+        if size <= self.line_size_budget {
+            let group = Group::new(LineFit::Fits, token.breaks_kind);
             self.groups.push(group);
             return;
         }
@@ -115,7 +130,7 @@ impl Renderer {
             prev_indent: self.indent,
         };
 
-        self.groups.push(Group::new(line_fit, token.break_kind));
+        self.groups.push(Group::new(line_fit, token.breaks_kind));
 
         self.indent = usize::try_from(self.indent as isize + token.offset).unwrap();
     }
@@ -128,16 +143,16 @@ impl Renderer {
         }
 
         if self.config.debug_layout {
-            self.output.push(match top_group.break_kind {
-                BreakKind::Consistent => '»',
-                BreakKind::Inconsistent => '›',
+            self.output.push(match top_group.breaks_kind {
+                BreaksKind::Consistent => '»',
+                BreaksKind::Inconsistent => '›',
             });
         }
     }
 
     fn fits_on_top(&self, size: isize) -> bool {
         let top_group = self.groups.last().copied().unwrap_or_else(|| {
-            Group::new(LineFit::Broken { prev_indent: 0 }, BreakKind::Inconsistent)
+            Group::new(LineFit::Broken { prev_indent: 0 }, BreaksKind::Inconsistent)
         });
 
         match top_group.line_fit {
@@ -146,15 +161,15 @@ impl Renderer {
                 // Even if the group is broken, we still try to fit the tokens
                 // on the same line if the break is inconsistent, which is the
                 // whole purpose if "consistent/inconsistent" distinction.
-                top_group.break_kind == BreakKind::Inconsistent && size <= self.space
+                top_group.breaks_kind == BreaksKind::Inconsistent && size <= self.line_size_budget
             }
         }
     }
 
     pub(super) fn print_break(&mut self, token: BreakToken, size: isize) {
         if token.never_break || self.fits_on_top(size) {
-            self.pending_indent += token.blank_space;
-            self.space -= token.blank_space as isize;
+            self.pending_spaces += token.blank_space;
+            self.line_size_budget -= token.blank_space as isize;
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -170,26 +185,28 @@ impl Renderer {
         self.output.push('\n');
 
         let indent = self.indent as isize + token.offset;
-        self.pending_indent = usize::try_from(indent).unwrap();
+        self.pending_spaces = usize::try_from(indent).unwrap();
 
-        todo!(
-            "min space allows overflowing the max line length by establishing
-            a minimum number of characters a line can occupy no matter how indented
-            it is"
-        );
-        self.space = self.config.max_line_width as isize - indent;
+        // todo!(
+        //     "min space allows overflowing the max line length by establishing
+        //     a minimum number of characters a line can occupy no matter how indented
+        //     it is"
+        // );
+        self.line_size_budget = self.config.line_size as isize - indent;
         // self.space = std::cmp::max(self.config.max_line_width as isize - indent, MIN_SPACE);
     }
 
     pub(super) fn print_string(&mut self, string: &str) {
-        self.print_indent();
-        self.output.push_str(&string);
-        self.space -= string.len() as isize;
+        self.print_pending_spaces();
+        self.output.push_str(string);
+
+        // TODO: use unicode-width here
+        self.line_size_budget -= string.len() as isize;
     }
 
-    fn print_indent(&mut self) {
-        self.output
-            .extend(std::iter::repeat_n(' ', self.pending_indent));
-        self.pending_indent = 0;
+    fn print_pending_spaces(&mut self) {
+        let spaces = std::iter::repeat_n(' ', self.pending_spaces);
+        self.output.extend(spaces);
+        self.pending_spaces = 0;
     }
 }

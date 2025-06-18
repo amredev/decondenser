@@ -1,10 +1,12 @@
 use crate::Str;
 
+#[derive(Debug)]
 pub struct EscapeConfig<'a> {
     pub escaped: Str<'a>,
     pub unescaped: Str<'a>,
 }
 
+#[derive(Debug)]
 pub struct GroupConfig<'a> {
     /// The sequence that opens the group.
     pub opening: Str<'a>,
@@ -13,6 +15,7 @@ pub struct GroupConfig<'a> {
     pub closing: Str<'a>,
 }
 
+#[derive(Debug)]
 pub struct QuoteConfig<'a> {
     /// The sequence that opens the quoted content.
     pub opening: Str<'a>,
@@ -25,6 +28,7 @@ pub struct QuoteConfig<'a> {
     pub escapes: &'a [EscapeConfig<'a>],
 }
 
+#[derive(Debug)]
 pub struct Decondenser<'a> {
     /// A string used to indent a single level of nesting.
     pub indent: Str<'a>,
@@ -32,7 +36,7 @@ pub struct Decondenser<'a> {
     /// Max number of characters per line.
     ///
     /// The width of each character is measured with the `unicode_width` crate.
-    pub max_line_width: usize,
+    pub line_size: usize,
 
     /// Groups of sequences used to nest content.
     pub groups: &'a [GroupConfig<'a>],
@@ -56,7 +60,7 @@ impl Decondenser<'_> {
             Decondenser {
                 debug_indent: false,
                 debug_layout: false,
-                max_line_width: 80,
+                line_size: 80,
                 indent: Str::borrowed("    "),
                 groups: &[
                     GroupConfig {

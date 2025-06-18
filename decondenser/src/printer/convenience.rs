@@ -1,21 +1,21 @@
 //! This code was originally adapted from the other codebase. See the parent
 //! module's doc comment for more references.
 
-use super::{BeginToken, BreakKind, BreakToken, Printer, SIZE_INFINITY};
+use super::{BeginToken, BreakToken, BreaksKind, Printer, SIZE_INFINITY};
 use std::borrow::Cow;
 
 impl Printer<'_> {
     pub(crate) fn begin_inconsistent(&mut self, indent: isize) {
         self.scan_begin(BeginToken {
             offset: indent,
-            break_kind: BreakKind::Inconsistent,
+            breaks_kind: BreaksKind::Inconsistent,
         });
     }
 
     pub(crate) fn begin_consistent(&mut self, indent: isize) {
         self.scan_begin(BeginToken {
             offset: indent,
-            break_kind: BreakKind::Consistent,
+            breaks_kind: BreaksKind::Consistent,
         });
     }
 

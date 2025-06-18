@@ -32,7 +32,7 @@ fn try_main() -> Result {
     };
 
     let mut decondenser = decondenser::Decondenser::generic();
-    decondenser.max_line_width = cli.max_line_width;
+    decondenser.line_size = cli.line_size;
     decondenser.debug_indent = cli.debug_indent;
     decondenser.debug_layout = cli.debug_layout;
 
@@ -74,9 +74,17 @@ struct Cli {
     #[clap(long, default_value = "    ")]
     indent: String,
 
-    /// Maximum width of a line before wrapping
+    /// Desired size of a line. If the is too big to fit into a single line of
+    /// this size, it'll be broken into several lines. If the content is too
+    /// small so that it doesn't fill the entire line, then several lines can be
+    /// condensed into a single line.
+    ///
+    /// There is no guarantee that the output will not contain lines longer than
+    /// this size. For example, a single long string literal or a long sequence
+    /// of non-whitespace characters may span more than this many characters,
+    /// and decondenser does not currently attempt to break these up.
     #[clap(long, default_value_t = 80)]
-    max_line_width: usize,
+    line_size: usize,
 
     /// Only used for debugging by the decondenser developers.
     ///

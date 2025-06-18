@@ -46,11 +46,10 @@
         "typescript.tsdk": "node_modules/typescript/lib",
 
         "rust-analyzer.check.command": "clippy",
-        "rust-analyzer.server.extraEnv": {
-          // Use a system-wide target directory dedicated for rust-analyzer.
-          // This way RA never blocks builds by locking the local target directory.
-          "CARGO_TARGET_DIR": "/home/amredev/rust-analyzer-target"
-        },
+
+        // Use a system-wide target directory dedicated for rust-analyzer.
+        // This way RA never blocks builds by locking the local target directory.
+        "rust-analyzer.cargo.targetDir": "/home/amredev/rust-analyzer-target",
 
         "[javascript][typescript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"

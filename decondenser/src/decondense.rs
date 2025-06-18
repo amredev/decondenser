@@ -26,6 +26,9 @@ impl crate::Decondenser<'_> {
             match node {
                 &parse::l2::AstNode::Space(content) => {
                     printer.nbsp();
+                    if (content.contains("\n")) {
+                        // printer.hardbreak();
+                    }
                 }
                 &parse::l2::AstNode::Raw(content) => {
                     printer.scan_string(content.into());
@@ -37,16 +40,16 @@ impl crate::Decondenser<'_> {
                     }
                 }
                 parse::l2::AstNode::Group(group) => {
-                    printer.scan_string(group.opening.into());
                     printer.begin_consistent(self.indent.len() as isize);
+                    printer.scan_string(group.opening.into());
                     printer.space_if_nonempty();
                     self.print(printer, &group.content);
                     printer.space();
                     printer.offset(-(self.indent.len() as isize));
-                    printer.scan_end();
                     if let Some(closing) = group.closing {
                         printer.scan_string(closing.into());
                     }
+                    printer.scan_end();
                 }
                 parse::l2::AstNode::Quoted(quoted) => {
                     printer.scan_string(quoted.opening.into());
