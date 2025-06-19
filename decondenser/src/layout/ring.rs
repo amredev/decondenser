@@ -4,7 +4,6 @@
 use std::collections::VecDeque;
 use std::ops::{Index, IndexMut, Range};
 
-#[derive(Debug)]
 pub(super) struct RingBuffer<T> {
     data: VecDeque<T>,
     // Abstract index of data[0] in infinitely sized queue
@@ -13,18 +12,18 @@ pub(super) struct RingBuffer<T> {
 
 impl<T> RingBuffer<T> {
     pub(super) fn new() -> Self {
-        RingBuffer {
+        Self {
             data: VecDeque::new(),
             offset: 0,
         }
     }
 
-    pub(super) fn is_empty(&self) -> bool {
-        self.data.is_empty()
+    pub(super) fn iter(&self) -> impl Iterator<Item = &T> {
+        self.data.iter()
     }
 
-    pub(super) fn len(&self) -> usize {
-        self.data.len()
+    pub(super) fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     pub(super) fn push(&mut self, value: T) -> usize {
@@ -56,10 +55,6 @@ impl<T> RingBuffer<T> {
 
     pub(super) fn last(&self) -> Option<&T> {
         self.data.back()
-    }
-
-    pub(super) fn last_mut(&mut self) -> &mut T {
-        self.data.back_mut().unwrap()
     }
 
     pub(super) fn second_last(&self) -> Option<&T> {

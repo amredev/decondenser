@@ -1,5 +1,5 @@
+use crate::layout::Layout;
 use crate::parse;
-use crate::printer::Printer;
 use crate::{Result, Str};
 use std::path::PathBuf;
 
@@ -12,54 +12,53 @@ impl crate::Decondenser<'_> {
             config: self,
         });
 
-        let mut printer = Printer::new(self);
+        let mut layout = Layout::new(self);
 
-        printer.begin_consistent(0);
-        self.print(&mut printer, &ast);
-        printer.scan_end();
+        layout.begin_consistent(0);
+        self.print(&mut layout, &ast);
+        layout.end();
 
-        Ok(printer.eof())
+        Ok(layout.eof())
     }
 
-    fn print<'a>(&self, printer: &mut Printer<'a>, nodes: &[parse::l2::AstNode<'a>]) {
+    fn print<'a>(&self, layout: &mut Layout<'a>, nodes: &[parse::l2::AstNode<'a>]) {
         for node in nodes {
             match node {
                 &parse::l2::AstNode::Space(content) => {
-                    printer.nbsp();
-                    if (content.contains("\n")) {
-                        // printer.hardbreak();
-                    }
+                    layout.literal(" ");
+                    // if (content.contains("\n")) {
+                    // printer.hardbreak();
+                    // }
                 }
                 &parse::l2::AstNode::Raw(content) => {
-                    printer.scan_string(content.into());
+                    layout.literal(content);
                 }
                 &parse::l2::AstNode::Punct(content) => {
-                    printer.scan_string(content.into());
+                    layout.literal(content);
                     if content == "," {
-                        printer.space();
+                        layout.space();
                     }
                 }
                 parse::l2::AstNode::Group(group) => {
-                    printer.begin_consistent(self.indent.len() as isize);
-                    printer.scan_string(group.opening.into());
-                    printer.space_if_nonempty();
-                    self.print(printer, &group.content);
-                    printer.space();
-                    printer.offset(-(self.indent.len() as isize));
+                    layout.begin_consistent(self.indent.len() as isize);
+                    layout.literal(group.opening);
+                    layout.space_if_nonempty();
+                    self.print(layout, &group.content);
+                    layout.space_with_offset(-(self.indent.len() as isize));
                     if let Some(closing) = group.closing {
-                        printer.scan_string(closing.into());
+                        layout.literal(closing);
                     }
-                    printer.scan_end();
+                    layout.end();
                 }
                 parse::l2::AstNode::Quoted(quoted) => {
-                    printer.scan_string(quoted.opening.into());
+                    layout.literal(quoted.opening);
 
                     for content in &quoted.content {
-                        printer.scan_string(content.text().into());
+                        layout.literal(content.text());
                     }
 
                     if let Some(closing) = quoted.closing {
-                        printer.scan_string(closing.into());
+                        layout.literal(closing);
                     }
                 }
             }

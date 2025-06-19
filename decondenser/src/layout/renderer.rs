@@ -1,4 +1,5 @@
-use super::{BeginToken, BreakToken, BreaksKind, SIZE_INFINITY};
+use super::SIZE_INFINITY;
+use super::token::{Begin, Break, BreaksKind};
 use crate::Decondenser;
 
 /// Every line is allowed at least this much space, even if highly indented.
@@ -43,7 +44,7 @@ struct RendererConfig {
 }
 
 #[derive(Debug)]
-pub(super) struct Renderer {
+pub(super) struct Printer {
     /// Constant values intentionally separated out of the struct to group them
     /// together for readability. Everything else in this struct is mutable.
     config: RendererConfig,
@@ -58,7 +59,7 @@ pub(super) struct Renderer {
     /// side of that could be done were already done. I.e. - there is no way to
     /// fit the token into the limit without breaking somewhere in the middle of
     /// some token, which is not allowed.
-    pub(super) line_size_budget: isize,
+    pub(super) size_budget: isize,
 
     /// Number of spaces for indenting the current line
     indent: usize,
@@ -76,7 +77,7 @@ pub(super) struct Renderer {
     groups: Vec<Group>,
 }
 
-impl Renderer {
+impl Printer {
     pub(super) fn new(config: &Decondenser<'_>) -> Self {
         Self {
             config: RendererConfig {
@@ -85,14 +86,14 @@ impl Renderer {
                 debug_indent: config.debug_indent,
             },
             output: String::new(),
-            line_size_budget: config.line_size.try_into().unwrap_or(SIZE_INFINITY),
+            size_budget: config.line_size.try_into().unwrap_or(SIZE_INFINITY),
             indent: 0,
             pending_spaces: 0,
             groups: Vec::new(),
         }
     }
 
-    pub(super) fn print_begin(&mut self, token: &BeginToken, size: isize) {
+    pub(super) fn begin(&mut self, token: &Begin, size: isize) {
         if self.config.debug_layout {
             self.output.push(match token.breaks_kind {
                 BreaksKind::Consistent => '«',
@@ -120,7 +121,7 @@ impl Renderer {
             self.output.extend(chars);
         }
 
-        if size <= self.line_size_budget {
+        if size <= self.size_budget {
             let group = Group::new(LineFit::Fits, token.breaks_kind);
             self.groups.push(group);
             return;
@@ -135,7 +136,7 @@ impl Renderer {
         self.indent = usize::try_from(self.indent as isize + token.offset).unwrap();
     }
 
-    pub(super) fn print_end(&mut self) {
+    pub(super) fn end(&mut self) {
         let top_group = self.groups.pop().unwrap();
 
         if let LineFit::Broken { prev_indent } = top_group.line_fit {
@@ -161,15 +162,15 @@ impl Renderer {
                 // Even if the group is broken, we still try to fit the tokens
                 // on the same line if the break is inconsistent, which is the
                 // whole purpose if "consistent/inconsistent" distinction.
-                top_group.breaks_kind == BreaksKind::Inconsistent && size <= self.line_size_budget
+                top_group.breaks_kind == BreaksKind::Inconsistent && size <= self.size_budget
             }
         }
     }
 
-    pub(super) fn print_break(&mut self, token: BreakToken, size: isize) {
+    pub(super) fn break_(&mut self, token: Break, size: isize) {
         if token.never_break || self.fits_on_top(size) {
             self.pending_spaces += token.blank_space;
-            self.line_size_budget -= token.blank_space as isize;
+            self.size_budget -= token.blank_space as isize;
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -192,16 +193,16 @@ impl Renderer {
         //     a minimum number of characters a line can occupy no matter how indented
         //     it is"
         // );
-        self.line_size_budget = self.config.line_size as isize - indent;
+        self.size_budget = self.config.line_size as isize - indent;
         // self.space = std::cmp::max(self.config.max_line_width as isize - indent, MIN_SPACE);
     }
 
-    pub(super) fn print_string(&mut self, string: &str) {
+    pub(super) fn literal(&mut self, text: &str) {
         self.print_pending_spaces();
-        self.output.push_str(string);
+        self.output.push_str(text);
 
         // TODO: use unicode-width here
-        self.line_size_budget -= string.len() as isize;
+        self.size_budget -= text.len() as isize;
     }
 
     fn print_pending_spaces(&mut self) {
