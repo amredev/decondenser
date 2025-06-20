@@ -20,6 +20,14 @@ map_unwrap_or = "allow"
 # than helpful.
 too_many_lines = "allow"
 
+# Marking every potential function as `const` is a bit too much.
+missing_const_for_fn = "allow"
+
+# No, thanks. Keep `pub(crate)` items as `pub(crate)`, don't mark them as `pub`,
+# this way it's immediately clear that a given symbol can never ever be accessed
+# outside of the crate.
+redundant_pub_crate = "allow"
+
 # Turn on lints that are allow by default in `clippy`.
 #
 # We set them to a `warn` level instead of `deny` to prevent clippy from exiting

@@ -34,10 +34,15 @@ function decondense(shouldUnescape: boolean) {
     let input = editor.document.getText(selection);
 
     if (shouldUnescape) {
-        input = decondenser.unescape(input);
+        input = decondenser.decondenser.unescape({
+            input,
+        }).output;
     }
 
-    const output = decondenser.decondense(input, " ".repeat(getIndent()));
+    const { output } = decondenser.decondenser.decondense({
+        input,
+        indent: " ".repeat(getIndent()),
+    });
 
     editor.edit((edit) => {
         edit.replace(selection, output);

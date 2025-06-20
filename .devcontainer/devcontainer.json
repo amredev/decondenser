@@ -12,6 +12,10 @@
   "workspaceFolder": "/home/amredev/dev/decondenser",
   "overrideCommand": false,
 
+  // Required for the Rust debugger
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+
   "containerEnv": {
     "HOST_WORKSPACE": "${localWorkspaceFolder}"
   },
@@ -41,11 +45,11 @@
         // preinstalled with VSCode
         "typescript.tsdk": "node_modules/typescript/lib",
 
-        "rust-analyzer.server.extraEnv": {
-          // Use a system-wide target directory dedicated for rust-analyzer.
-          // This way RA never blocks builds by locking the local target directory.
-          "CARGO_TARGET_DIR": "/home/amredev/rust-analyzer-target"
-        },
+        "rust-analyzer.check.command": "clippy",
+
+        // Use a system-wide target directory dedicated for rust-analyzer.
+        // This way RA never blocks builds by locking the local target directory.
+        "rust-analyzer.cargo.targetDir": "/home/amredev/rust-analyzer-target",
 
         "[javascript][typescript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -89,6 +93,12 @@
       "extensions": [
         // Rust LSP
         "rust-lang.rust-analyzer",
+
+        // Rust debugger
+        "vadimcn.vscode-lldb",
+
+        // Generic dependency management, includes Rust support
+        "fill-labs.dependi",
 
         // TOML LSP
         "tamasfe.even-better-toml",

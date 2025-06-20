@@ -45,7 +45,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "build": "tsc --noEmit && ../decondenser-ts/build.sh && ./esbuild.mjs"
+    "build": "../decondenser-ts/build.sh && tsc --noEmit && ./esbuild.mjs"
   },
   "dependencies": {
     "decondenser": "0.1.0"
