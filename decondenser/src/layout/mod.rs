@@ -13,18 +13,17 @@
 //! <https://mcyoung.xyz/2025/03/11/formatters/>
 
 mod convenience;
-mod renderer;
+mod printer;
 mod ring;
 mod token;
 
-use self::renderer::Printer;
+use self::printer::Printer;
 use self::ring::RingBuffer;
 use self::token::{Begin, Break, Token};
 use crate::Decondenser;
-use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::fmt;
-use token::{BreaksKind, Literal};
+use token::{BreaksKind, End, Literal};
 
 const SIZE_INFINITY: isize = 0xffff;
 
@@ -34,21 +33,18 @@ pub(crate) struct Layout<'a> {
     /// line.
     tokens: RingBuffer<Token<'a>>,
 
-    /// Holds the ring-buffer index of the Begin that started the current block,
-    /// possibly with the most recent Break after that Begin (if there is any) on
-    /// top of it. Values are pushed and popped on the back of the queue using it
-    /// like stack, and elsewhere old values are popped from the front of the
-    /// queue as they become irrelevant due to the primary ring-buffer advancing.
-    ///
-    /// This basically serves as a cache. The algorithm could work without it
-    /// by scanning the ring-buffer to search for tokens with negative sizes.
+    /// Holds indices of [`Token::Begin`] and [`Token::Break`] tokens that are
+    /// not yet measured, i.e. we don't know the size of the group that was
+    /// begun or the size of the next chunk of tokens after the break. Also,
+    /// includes [`Token::End`] tokens so that we can track the levels of
+    /// nesting when traversing this buffer.
     unmeasured: VecDeque<usize>,
 
     /// Size of tokens that were already printed
     printed_size: isize,
 
-    /// Size of tokens enqueued, including already printed and not yet printed.
-    /// I.e. this is guaranteed to be >= [`Self::printed_size`].
+    /// Size of all [`Self::tokens`] plus the ones that are already printed and
+    /// not yet printed. This is guaranteed to be >= [`Self::printed_size`].
     planned_size: isize,
 
     printer: Printer,
@@ -60,16 +56,24 @@ impl fmt::Debug for RingBuffer<Token<'_>> {
         writeln!(f, "index_range: {index_range:?}")?;
 
         let mut indent = 0usize;
-        let indent_size = 4;
+        let indent_size = 2;
 
         for (entry, i) in self.iter().zip(index_range) {
             match entry {
-                Token::Begin(_) => indent += indent_size,
-                Token::End => indent = indent.saturating_sub(indent_size),
-                _ => {}
+                Token::Begin(_) => {
+                    indent += indent_size;
+                    writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
+                    indent += indent_size;
+                }
+                Token::End { .. } => {
+                    indent = indent.saturating_sub(indent_size);
+                    writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
+                    indent = indent.saturating_sub(indent_size);
+                }
+                _ => {
+                    writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
+                }
             }
-
-            writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
         }
 
         Ok(())
@@ -77,11 +81,11 @@ impl fmt::Debug for RingBuffer<Token<'_>> {
 }
 
 #[derive(Default)]
-struct BreakParams {
-    offset: isize,
-    blank_space: usize,
-    if_nonempty: bool,
-    never_break: bool,
+pub(crate) struct BreakParams {
+    pub(crate) offset: isize,
+    pub(crate) blank_space: usize,
+    pub(crate) if_nonempty: bool,
+    pub(crate) never_break: bool,
 }
 
 impl<'a> Layout<'a> {
@@ -97,7 +101,7 @@ impl<'a> Layout<'a> {
 
     pub(crate) fn eof(mut self) -> String {
         if !self.unmeasured.is_empty() {
-            self.update_measurements();
+            self.measure();
             self.print_measured_tokens();
         }
         self.printer.output
@@ -108,11 +112,15 @@ impl<'a> Layout<'a> {
         self.unmeasured.push_back(index);
     }
 
+    fn reset_tokens(&mut self) {
+        self.printed_size = 1;
+        self.planned_size = 1;
+        self.tokens.clear();
+    }
+
     fn begin(&mut self, offset: isize, breaks_kind: BreaksKind) {
         if self.unmeasured.is_empty() {
-            self.printed_size = 1;
-            self.planned_size = 1;
-            self.tokens.clear();
+            self.reset_tokens();
         }
         self.push_unmeasured(Token::Begin(Begin {
             size: -self.planned_size,
@@ -144,18 +152,14 @@ impl<'a> Layout<'a> {
             }
         }
 
-        let right = self.tokens.push(Token::End);
-
-        self.unmeasured.push_back(right);
+        self.push_unmeasured(Token::End(End { measured: false }));
     }
 
-    fn break_(&mut self, params: BreakParams) {
+    pub(crate) fn break_(&mut self, params: BreakParams) {
         if self.unmeasured.is_empty() {
-            self.printed_size = 1;
-            self.planned_size = 1;
-            self.tokens.clear();
+            self.reset_tokens();
         } else {
-            self.update_measurements();
+            self.measure();
         }
         self.push_unmeasured(Token::Break(Break {
             offset: params.offset,
@@ -169,15 +173,14 @@ impl<'a> Layout<'a> {
 
     pub(crate) fn literal(&mut self, text: &'a str) {
         if self.unmeasured.is_empty() {
-            self.printer.literal(&text);
+            self.printer.literal(text);
             return;
         }
 
-        let len = text.len() as isize;
-        self.tokens
-            .push(Token::Literal(Literal { size: len, text }));
+        let size = text.len() as isize;
+        self.tokens.push(Token::Literal(Literal { size, text }));
 
-        self.planned_size += len;
+        self.planned_size += size;
         self.break_if_overflow();
     }
 
@@ -186,8 +189,10 @@ impl<'a> Layout<'a> {
             // We know that the content overflows, and if there is a chance to
             // break a group or turn a break into a line break, do it by
             // assigning infinite size to the unmeasured token.
-            if !self.tokens.first_mut().is_measured() {
-                self.unmeasured.pop_front().unwrap();
+            if !self.tokens.first().is_measured() {
+                let index = self.unmeasured.pop_front();
+                debug_assert_eq!(index, Some(self.tokens.index_range().start));
+
                 self.tokens.first_mut().set_infinite_size();
             }
 
@@ -210,47 +215,54 @@ impl<'a> Layout<'a> {
                     self.printed_size += literal.size;
                     self.printer.literal(&literal.text);
                 }
-                Token::Break(token) => {
-                    self.printed_size += token.blank_space as isize;
-                    self.printer.break_(token, token.size);
+                Token::Break(break_) => {
+                    self.printed_size += break_.blank_space as isize;
+                    self.printer.break_(break_, break_.size);
                 }
-                Token::Begin(token) => self.printer.begin(&token, token.size),
-                Token::End => self.printer.end(),
+                Token::Begin(begin) => self.printer.begin(&begin, begin.size),
+                Token::End { .. } => self.printer.end(),
             }
 
             if self.tokens.is_empty() {
                 break;
             }
         }
-
-        dbg!(&self.printer.output);
     }
 
-    fn update_measurements(&mut self) {
+    fn measure(&mut self) {
         let mut depth: usize = 0;
         while let Some(&index) = self.unmeasured.back() {
+            let mut pop_back_unmeasured = || {
+                let index = self.unmeasured.pop_back();
+                debug_assert_ne!(index, None);
+            };
+
             let token = &mut self.tokens[index];
             match token {
                 Token::Begin(token) => {
                     if depth == 0 {
-                        break;
+                        return;
                     }
-                    self.unmeasured.pop_back().unwrap();
+                    pop_back_unmeasured();
                     token.size += self.planned_size;
                     depth -= 1;
                 }
-                Token::End => {
-                    self.unmeasured.pop_back().unwrap();
+                Token::End(token) => {
+                    pop_back_unmeasured();
+                    token.measured = true;
                     depth += 1;
                 }
                 Token::Break(token) => {
-                    self.unmeasured.pop_back().unwrap();
+                    pop_back_unmeasured();
                     token.size += self.planned_size;
                     if depth == 0 {
-                        break;
+                        return;
                     }
                 }
-                Token::Literal(_) => unreachable!(),
+                Token::Literal(_) => debug_assert!(
+                    false,
+                    "Literals should never be part of unmeasured token indices"
+                ),
             }
         }
     }

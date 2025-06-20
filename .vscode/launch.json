@@ -15,7 +15,6 @@
       "name": "CLI",
       "type": "lldb",
       "request": "launch",
-      "sourceLanguages": ["rust"],
       "cargo": {
         "env": {
           "CARGO_PROFILE_DEV_DEBUG": "true"

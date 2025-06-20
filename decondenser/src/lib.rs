@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+mod ansi;
 mod decondense;
 mod decondenser;
 mod error;

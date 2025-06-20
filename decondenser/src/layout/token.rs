@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use crate::ansi::{BLACK, BLUE, BOLD, DIM, GREEN, NO_BOLD, NO_DIM, RESET, WHITE, YELLOW};
 use std::fmt;
 
 /// Sets the algorithm used to decide whether to turn a given [`Token::Break`]
@@ -12,7 +12,7 @@ use std::fmt;
 /// group can not fit on a single line. If it does fit - it won't be broken
 /// disregarding the [`BreaksKind`].
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) enum BreaksKind {
+pub(crate) enum BreaksKind {
     /// Turn **all** breaks into a line break.
     ///
     /// ```ignore
@@ -77,27 +77,35 @@ pub(super) struct Literal<'a> {
     pub(super) text: &'a str,
 }
 
+pub(super) struct End {
+    pub(super) measured: bool,
+}
+
 pub(super) enum Token<'a> {
     Literal(Literal<'a>),
     Break(Break),
     Begin(Begin),
-    End,
+    End(End),
 }
+
+const SIZE_INFINITY: isize = 0xffff;
 
 impl Token<'_> {
     pub(super) fn is_measured(&self) -> bool {
         match self {
             Self::Break(token) => token.size >= 0,
             Self::Begin(token) => token.size >= 0,
-            Self::Literal(_) | Self::End => true,
+            Self::End(token) => token.measured,
+            Self::Literal(_) => true,
         }
     }
 
     pub(super) fn set_infinite_size(&mut self) {
         match self {
-            Self::Break(token) => token.size = isize::MAX,
-            Self::Begin(token) => token.size = isize::MAX,
-            Self::Literal(_) | Self::End => unreachable!(),
+            Self::Break(token) => token.size = SIZE_INFINITY,
+            Self::Begin(token) => token.size = SIZE_INFINITY,
+            Self::End(token) => token.measured = true,
+            Self::Literal(_) => unreachable!(),
         }
     }
 }
@@ -106,7 +114,7 @@ impl fmt::Debug for Literal<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { size, text } = self;
 
-        write!(f, "size {:>3?}: {text:?}", DebugSize(*size))
+        write!(f, "{}{WHITE}{text:?}{RESET}", DebugSize(*size))
     }
 }
 
@@ -120,7 +128,11 @@ impl fmt::Debug for Break {
             never_break,
         } = *self;
 
-        write!(f, "size {size:>3}: Break({blank_space}")?;
+        write!(
+            f,
+            "{}{GREEN}{BOLD}Break{NO_BOLD} {blank_space}",
+            DebugSize(size)
+        )?;
 
         if offset != 0 {
             write!(f, ", offset: {offset}")?;
@@ -134,7 +146,7 @@ impl fmt::Debug for Break {
             write!(f, ", never_break: {never_break}")?;
         }
 
-        write!(f, ")")
+        write!(f, "{RESET}")
     }
 }
 
@@ -146,36 +158,57 @@ impl fmt::Debug for Begin {
             breaks_kind,
         } = *self;
 
-        write!(f, "size {:>3?}: Begin({breaks_kind:?}", DebugSize(size))?;
+        write!(
+            f,
+            "{}{YELLOW}{BOLD}Begin{NO_BOLD} {breaks_kind:?}",
+            DebugSize(size)
+        )?;
 
         if offset != 0 {
             write!(f, ", offset: {offset}")?;
         }
 
-        write!(f, ")")
+        write!(f, "{RESET}")
+    }
+}
+
+impl fmt::Debug for End {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { measured } = *self;
+
+        let measured = if measured { '0' } else { '-' };
+
+        write!(f, "{BLACK}({measured}){BLUE} {BOLD}End{NO_BOLD}")?;
+
+        write!(f, "{RESET}")?;
+
+        Ok(())
     }
 }
 
 impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Token::Literal(str) => write!(f, "{str:?}"),
+            Token::Literal(token) => write!(f, "{token:?}"),
             Token::Break(token) => write!(f, "{token:?}"),
             Token::Begin(token) => write!(f, "{token:?}"),
-            Token::End => write!(f, "End"),
+            Token::End(token) => write!(f, "{token:?}"),
         }
     }
 }
 
 struct DebugSize(isize);
 
-impl fmt::Debug for DebugSize {
+impl fmt::Display for DebugSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(size) = *self;
-        if size == isize::MAX {
-            write!(f, "  ∞")
+        write!(f, "{BLACK}")?;
+        if size == SIZE_INFINITY {
+            write!(f, "(∞)")?;
         } else {
-            write!(f, "{size:>3}")
+            write!(f, "{:>5}", format!("({size})"))?;
         }
+        write!(f, "{RESET} ")?;
+        Ok(())
     }
 }

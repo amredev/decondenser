@@ -58,7 +58,7 @@ impl<T> RingBuffer<T> {
     }
 
     pub(super) fn second_last(&self) -> Option<&T> {
-        self.data.get(self.data.len() - 2)
+        self.data.get(self.data.len().checked_sub(2)?)
     }
 
     pub(super) fn pop_last(&mut self) {

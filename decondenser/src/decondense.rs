@@ -1,4 +1,4 @@
-use crate::layout::Layout;
+use crate::layout::{BreakParams, Layout};
 use crate::parse;
 use crate::{Result, Str};
 use std::path::PathBuf;
@@ -40,15 +40,27 @@ impl crate::Decondenser<'_> {
                     }
                 }
                 parse::l2::AstNode::Group(group) => {
-                    layout.begin_consistent(self.indent.len() as isize);
                     layout.literal(group.opening);
-                    layout.space_if_nonempty();
+                    layout.begin_consistent(self.indent.len() as isize);
+
+                    layout.space();
+
                     self.print(layout, &group.content);
-                    layout.space_with_offset(-(self.indent.len() as isize));
+
+                    if !group.content.is_empty() {
+                        layout.break_(BreakParams {
+                            offset: -(self.indent.len() as isize),
+                            blank_space: 1,
+                            if_nonempty: false,
+                            never_break: false,
+                        });
+                    }
+
+                    layout.end();
+
                     if let Some(closing) = group.closing {
                         layout.literal(closing);
                     }
-                    layout.end();
                 }
                 parse::l2::AstNode::Quoted(quoted) => {
                     layout.literal(quoted.opening);
