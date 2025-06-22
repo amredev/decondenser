@@ -1,0 +1,147 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: --deny warnings
+  RUSTDOCFLAGS: --deny warnings
+  # This disables incremental compilation for workspace packages and path deps.
+  CARGO_INCREMENTAL: 0
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos, windows]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+          cache: npm
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: cargo-component
+          version: dev
+
+      - run: npm ci --workspaces --include-workspace-root
+      - run: ./decondenser-ts/build.sh
+      - run: npm run fmt:check
+      - run: npm run lint
+      - run: npm run --workspace decondenser-vscode build
+
+  cargo-fmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+
+      - run: cargo fmt --all -- --check
+
+  cargo-doc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: cargo-component
+          version: dev
+
+      - run: cargo-component bindings
+      - run: cargo doc --no-deps
+
+  rust-stable:
+    runs-on: ${{ matrix.os }}-latest
+
+    continue-on-error: ${{ matrix.locked == '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos, windows]
+        locked: [--locked, ""]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: cargo-component
+          version: dev
+
+      - run: cargo-component bindings
+
+      - run: cargo clippy ${{ matrix.locked }} --all-features --all-targets
+      - run: cargo test ${{ matrix.locked }} --all-features --all-targets
+      - run: cargo test ${{ matrix.locked }} --all-features --doc
+
+  cargo-lock:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # There is a pre-installed cargo in the Github Managed runner image
+      # which is totally fine for simple `cargo fetch` usage.
+      - run: cargo +stable fetch
+
+      # Manually validate that Cargo.lock is not changed by cargo fetch
+      # We do this manually because `cargo fetch --locked` doesn't show
+      # the diff that it wants to apply to Cargo.lock and so it may not
+      # be obvious what's going on. For example, there may be a tricky
+      # scenario when `Cargo.lock` is up-to-date on the current branch,
+      # but when rebased on `master` it is out-of-date because.
+      - name: Validate Cargo.lock is up-to-date
+        run: >-
+          git diff --exit-code --color=always || ( echo "Cargo.lock is
+          out-of-date. See the diff above. Try rebasing on master" && exit 1 )
+
+  # Check the formatting of TOML files in the repository
+  taplo-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: taplo
+          version: 0.10.0
+
+      - run: taplo fmt --check
+
+  # Check for typos in the repository based on a static dictionary
+  typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.33.1
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: shellcheck
+          version: 0.10.0
+
+      - run: ./scripts/shellcheck.sh

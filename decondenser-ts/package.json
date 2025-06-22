@@ -1,0 +1,14 @@
+{
+  "name": "decondenser",
+  "version": "0.1.0",
+  "description": "A think TypeScript wrapper over the WASM build of Decondenser",
+  "private": true,
+  "types": "./dist/decondenser_wasm.d.ts",
+  "main": "./dist/decondenser_wasm.js",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "^1.11.2"
+  }
+}

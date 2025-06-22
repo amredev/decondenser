@@ -1,0 +1,154 @@
+{
+  // See the docs at https://containers.dev/implementors/json_reference/
+  "build": {
+    "dockerfile": "./Dockerfile",
+    "context": ".."
+  },
+
+  // Mounting the parent folder of the repository to be able to add path
+  // dependencies to other repositories or switch to other repos easily.
+  // We assume this repo lives in a folder called `decondenser` on host.
+  "workspaceMount": "source=${localWorkspaceFolder}/..,target=/home/amredev/dev,type=bind,consistency=cached",
+  "workspaceFolder": "/home/amredev/dev/decondenser",
+  "overrideCommand": false,
+
+  // Required for the Rust debugger
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+
+  "containerEnv": {
+    "HOST_WORKSPACE": "${localWorkspaceFolder}"
+  },
+
+  "mounts": [
+    {
+      "source": "shell-history",
+      "target": "/home/amredev/shell-history",
+      "type": "volume"
+    },
+    {
+      "source": "rust-analyzer-cache",
+      "target": "/home/amredev/rust-analyzer-cache",
+      "type": "volume"
+    },
+    {
+      "source": "/var/run/docker.sock",
+      "target": "/var/run/docker.sock",
+      "type": "bind"
+    }
+  ],
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Use the workspace's version of TS, not the one that comes
+        // preinstalled with VSCode
+        "typescript.tsdk": "node_modules/typescript/lib",
+
+        "rust-analyzer.check.command": "clippy",
+
+        // Use a system-wide target directory dedicated for rust-analyzer.
+        // This way RA never blocks builds by locking the local target directory.
+        "rust-analyzer.cargo.targetDir": "/home/amredev/rust-analyzer-target",
+
+        "[javascript][typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+
+        "[toml]": {
+          "editor.defaultFormatter": "tamasfe.even-better-toml"
+        },
+
+        "evenBetterToml.taplo.configFile.enabled": true,
+        "evenBetterToml.taplo.configFile.path": "./taplo.toml",
+
+        // evenBetterToml defines some custom text mate scopes that aren't known
+        // to your color theme, so we just define colors for them manually
+        "editor.tokenColorCustomizations": {
+          "[*Dark*]": {
+            "textMateRules": [
+              {
+                "scope": "support.type.property-name.table.toml",
+                "settings": {
+                  "foreground": "#4EC9B0"
+                }
+              }
+            ]
+          }
+        },
+
+        "files.exclude": {
+          "out": false, // set this to true to hide the "out" folder with the compiled JS files
+          "dist": false // set this to true to hide the "dist" folder with the compiled JS files
+        },
+
+        "search.exclude": {
+          "out": true, // set this to false to include "out" folder in search results
+          "dist": true // set this to false to include "dist" folder in search results
+        },
+
+        // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+        "typescript.tsc.autoDetect": "off"
+      },
+      "extensions": [
+        // Rust LSP
+        "rust-lang.rust-analyzer",
+
+        // Rust debugger
+        "vadimcn.vscode-lldb",
+
+        // Generic dependency management, includes Rust support
+        "fill-labs.dependi",
+
+        // TOML LSP
+        "tamasfe.even-better-toml",
+
+        // WIT basic support
+        "bytecodealliance.wit-idl",
+
+        // Better TS diagnostics in IDE. It's recommended to go through these
+        // instructions here to make the errors less noisy and more convenient,
+        // unfortunately, this can't be configured at this level, because CSS
+        // extension always run on the host machine:
+        // https://github.com/yoavbls/pretty-ts-errors/blob/main/docs/hide-original-errors.md
+        "yoavbls.pretty-ts-errors",
+
+        // Dockerfile LSP by Docker Inc.
+        "docker.docker",
+
+        // Container management extension by Microsoft
+        "ms-azuretools.vscode-containers",
+
+        // Github Actions LSP
+        "github.vscode-github-actions",
+
+        // Bash LSP
+        "mads-hartmann.bash-ide-vscode",
+
+        // Shell scripts linter
+        "timonwong.shellcheck",
+
+        // Shell scripts formatter
+        "foxundermoon.shell-format",
+
+        // `.js`, `.ts` linter
+        "dbaeumer.vscode-eslint",
+
+        // `.js`, `.ts`. `.css`, `.json`, `.yaml`, `.md` formatter
+        "esbenp.prettier-vscode",
+
+        // Spell checker enforced on CI
+        "tekumara.typos-vscode",
+
+        // Inline git blame annotations
+        "eamodio.gitlens",
+
+        // Runner for VSCode extension tests
+        "ms-vscode.extension-test-runner",
+
+        // TOML LSP
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}

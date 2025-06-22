@@ -1,0 +1,19 @@
+[package]
+name    = "decondenser-wasm"
+version = "0.1.0"
+
+# The only user of this crate at the time of this writing is the VSCode
+# extension. If anyone wants to use it as a library, they should use
+# `decondenser` crate instead.
+publish = false
+
+edition    = { workspace = true }
+license    = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+decondenser    = { workspace = true }
+wit-bindgen-rt = { version = "0.42.1", default-features = false }
+
+[lib]
+crate-type = ["cdylib"]

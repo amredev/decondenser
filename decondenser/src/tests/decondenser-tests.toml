@@ -1,0 +1,28 @@
+# 💡 Enable word wrap when editing this file.
+# You can use `> View: Toggle Word Wrap` in VSCode.
+
+["simple Rust debug output"]
+input = """
+Test {key1:"value1","key2": "value2"}[[1],[2],[3],]{"key1":"value1","key2":[123]}
+
+Family { name: "Smith", members: [Member { name: "Alice", age: 30 }, Member { name: "Bob", age: 28 }] }
+"""
+
+["JSON escapes"]
+input = """
+{"key": "\\n\\r\\t"}
+{"key": "val\nue"}
+{"key": "val\rue"}
+{"key": "val\tue"}
+"""
+
+["simple escaped JSON"]
+input = """
+{\n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
+"""
+
+["unterminated group"]
+input = "( group"
+
+["unterminated quotes"]
+input = '"unterminated"'

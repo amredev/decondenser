@@ -1,0 +1,5 @@
+# Turn the rules into opt-in instead of opt-out. This entry ignores everything.
+**
+
+# Unignore only the files we want to include.
+!dist/**

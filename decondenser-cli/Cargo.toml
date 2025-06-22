@@ -1,0 +1,24 @@
+[package]
+name    = "decondenser-cli"
+version = "0.1.0"
+description = "Pretty-print any text based on brackets nesting. CLI crate"
+
+edition    = { workspace = true }
+license    = { workspace = true }
+repository = { workspace = true }
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "decondenser"
+path = "src/main.rs"
+
+# If docs are enabled, they collide with the docs for the `decondenser` library
+# crate. Details: https://github.com/rust-lang/cargo/issues/6313
+doc = false
+
+[dependencies]
+anyhow      = "1.0"
+clap        = { version = "4.5", features = ["derive"] }
+decondenser = { path = "../decondenser", version = "=0.1.0" }

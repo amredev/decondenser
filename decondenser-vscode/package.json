@@ -1,0 +1,59 @@
+{
+  "name": "decondenser-vscode",
+  "displayName": "Decondenser",
+  "publisher": "amredev",
+  "icon": "assets/marketplace-icon.png",
+  "description": "Format your code based on bracket placement",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amredev/decondenser"
+  },
+  "version": "0.0.3",
+  "engines": {
+    "vscode": "^1.97.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "decondenser.decondense",
+        "title": "Decondenser: Decondense"
+      },
+      {
+        "command": "decondenser.unescape",
+        "title": "Decondenser: Unescape"
+      }
+    ],
+    "configuration": {
+      "title": "Decondenser",
+      "properties": {
+        "decondenser.indentationSize": {
+          "type": "integer",
+          "default": 4,
+          "description": "Number of spaces used for indentation"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "build": "../decondenser-ts/build.sh && tsc --noEmit && ./esbuild.mjs"
+  },
+  "dependencies": {
+    "decondenser": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.100.0",
+    "esbuild": "^0.25.5",
+    "typescript": "^5.8.3"
+  }
+}
