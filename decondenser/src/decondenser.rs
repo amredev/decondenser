@@ -1,9 +1,29 @@
 use crate::Str;
 
 #[derive(Debug)]
-pub struct EscapeConfig<'a> {
-    pub escaped: Str<'a>,
-    pub unescaped: Str<'a>,
+pub struct Decondenser<'a> {
+    /// A string used to indent a single level of nesting.
+    pub indent: Str<'a>,
+
+    /// Max number of characters per line.
+    ///
+    /// The width of each character is measured with the `unicode_width` crate.
+    pub line_size: usize,
+
+    /// Groups of sequences used to nest content.
+    pub groups: &'a [GroupConfig<'a>],
+
+    /// Quotes notations that enclose unbreakable string-literal content.
+    pub quotes: &'a [QuoteConfig<'a>],
+
+    /// Punctuation sequences used to separate content.
+    pub puncts: &'a [PunctConfig<'a>],
+
+    /// Output control characters for debugging the layout logic
+    pub debug_layout: bool,
+
+    /// Output indentation characters for debugging the indent logic
+    pub debug_indent: bool,
 }
 
 #[derive(Debug)]
@@ -29,29 +49,14 @@ pub struct QuoteConfig<'a> {
 }
 
 #[derive(Debug)]
-pub struct Decondenser<'a> {
-    /// A string used to indent a single level of nesting.
-    pub indent: Str<'a>,
+pub struct EscapeConfig<'a> {
+    pub escaped: Str<'a>,
+    pub unescaped: Str<'a>,
+}
 
-    /// Max number of characters per line.
-    ///
-    /// The width of each character is measured with the `unicode_width` crate.
-    pub line_size: usize,
-
-    /// Groups of sequences used to nest content.
-    pub groups: &'a [GroupConfig<'a>],
-
-    /// Quotes notations that enclose unbreakable string-literal content.
-    pub quotes: &'a [QuoteConfig<'a>],
-
-    /// Punctuation sequences used to separate content.
-    pub puncts: &'a [Str<'a>],
-
-    /// Output control characters for debugging the layout logic
-    pub debug_layout: bool,
-
-    /// Output indentation characters for debugging the indent logic
-    pub debug_indent: bool,
+pub struct PunctConfig<'a> {
+    /// The punctuation sequence.
+    pub text: Str<'a>,
 }
 
 impl Decondenser<'_> {
@@ -139,6 +144,7 @@ impl Decondenser<'_> {
                     Str::borrowed(";"),
                     Str::borrowed(":"),
                     Str::borrowed("="),
+                    Str::borrowed("?"),
                 ],
             }
         }

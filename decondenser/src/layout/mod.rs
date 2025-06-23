@@ -126,7 +126,9 @@ impl<'a> Layout<'a> {
                 preceding_tokens_size: self.total_single_line_size,
             },
         }));
-        self.total_single_line_size += params.blank_space;
+        self.total_single_line_size = self
+            .total_single_line_size
+            .saturating_add(params.blank_space);
     }
 
     pub(crate) fn literal(&mut self, text: &'a str) {
@@ -139,7 +141,7 @@ impl<'a> Layout<'a> {
         self.tokens
             .push_back(Token::Literal(Literal { size, text }));
 
-        self.total_single_line_size += size;
+        self.total_single_line_size = self.total_single_line_size.saturating_add(size);
         self.break_if_overflow();
     }
 
@@ -172,7 +174,9 @@ impl<'a> Layout<'a> {
         while let Some(token) = self.tokens.front() {
             match token {
                 Token::Literal(literal) => {
-                    self.printed_single_line_size += literal.size;
+                    self.printed_single_line_size =
+                        self.printed_single_line_size.saturating_add(literal.size);
+
                     self.printer.literal(literal.text);
                 }
                 Token::Break(break_) => {
@@ -180,7 +184,10 @@ impl<'a> Layout<'a> {
                         return;
                     };
 
-                    self.printed_single_line_size += break_.blank_space;
+                    self.printed_single_line_size = self
+                        .printed_single_line_size
+                        .saturating_add(break_.blank_space);
+
                     self.printer.break_(break_, size);
                 }
                 Token::Begin(begin) => {

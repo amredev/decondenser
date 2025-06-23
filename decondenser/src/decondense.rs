@@ -21,20 +21,27 @@ impl crate::Decondenser<'_> {
     }
 
     fn print<'a>(&self, layout: &mut Layout<'a>, nodes: &[parse::l2::AstNode<'a>]) {
-        for node in nodes {
+        let mut nodes = nodes.iter();
+
+        while let Some(node) = nodes.next() {
             match node {
-                &parse::l2::AstNode::Space(_content) => {
-                    layout.literal(" ");
-                    // if (content.contains("\n")) {
-                    // printer.hardbreak();
-                    // }
+                &parse::l2::AstNode::Space(content) => {
+                    let has_empty_line =
+                        content.chars().filter(|&c| c == '\n').take(2).count() == 2;
+
+                    todo!("Handle empty lines properly");
+                    if has_empty_line {
+                        layout.literal(content);
+                    } else {
+                        layout.literal(" ");
+                    }
                 }
                 &parse::l2::AstNode::Raw(content) => {
                     layout.literal(content);
                 }
                 &parse::l2::AstNode::Punct(content) => {
                     layout.literal(content);
-                    if content == "," {
+                    if matches!(content, "," | "?") {
                         layout.break_(BreakParams {
                             blank_space: 1,
                             indent_diff: 0,

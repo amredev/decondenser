@@ -52,7 +52,7 @@ pub(super) struct Printer {
 
     /// Spare budget of size left on the current line.
     ///
-    /// Can be negative if the last printed token was larger than a the
+    /// Can be zero if the last printed token was >= in size than the
     /// [`RendererConfig::line_size`] limit, and all possible breaks on the left
     /// side of that could be done were already done. I.e. - there is no way to
     /// fit the token into the limit without breaking somewhere in the middle of
@@ -184,7 +184,7 @@ impl Printer {
     pub(super) fn break_(&mut self, token: &Break, size: Size) {
         if self.break_fits(size) {
             self.pending_spaces += token.blank_space;
-            self.line_size_budget -= token.blank_space;
+            self.line_size_budget = self.line_size_budget.saturating_sub(token.blank_space);
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -202,16 +202,13 @@ impl Printer {
         let indent = self.add_indent(token.indent_diff);
 
         self.pending_spaces = indent;
-        self.line_size_budget = self.config.line_size - indent;
+        self.line_size_budget = self.config.line_size.saturating_sub(indent);
     }
 
     pub(super) fn literal(&mut self, text: &str) {
         self.print_pending_spaces();
         self.output.push_str(text);
-
-        // TODO: use unicode-width here
-        // self.size_budget -= text.chars().count() as isize;
-        self.line_size_budget -= text.width();
+        self.line_size_budget = self.line_size_budget.saturating_sub(text.width());
     }
 
     fn print_pending_spaces(&mut self) {
