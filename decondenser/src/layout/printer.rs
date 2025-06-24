@@ -1,6 +1,6 @@
 use super::Size;
-use super::token::{Begin, Break, BreaksKind};
-use crate::Decondenser;
+use super::token::{Begin, Break};
+use crate::{BreakStyle, Decondenser};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Copy, Clone)]
@@ -18,14 +18,14 @@ enum LineFit {
 #[derive(Debug, Clone, Copy)]
 struct Group {
     line_fit: LineFit,
-    breaks_kind: BreaksKind,
+    break_style: BreakStyle,
 }
 
 impl Group {
-    fn new(line_fit: LineFit, breaks_kind: BreaksKind) -> Self {
+    fn new(line_fit: LineFit, break_style: BreakStyle) -> Self {
         Self {
             line_fit,
-            breaks_kind,
+            break_style,
         }
     }
 }
@@ -76,7 +76,7 @@ pub(super) struct Printer {
 }
 
 impl Printer {
-    pub(super) fn new(config: &Decondenser<'_>) -> Self {
+    pub(super) fn new(config: &Decondenser) -> Self {
         Self {
             config: RendererConfig {
                 line_size: config.line_size,
@@ -93,9 +93,9 @@ impl Printer {
 
     pub(super) fn begin(&mut self, token: &Begin, size: Size) {
         if self.config.debug_layout {
-            self.output.push(match token.breaks_kind {
-                BreaksKind::Consistent => '«',
-                BreaksKind::Inconsistent => '‹',
+            self.output.push(match token.break_style {
+                BreakStyle::Consistent => '«',
+                BreakStyle::Compact => '‹',
             });
         }
 
@@ -120,7 +120,7 @@ impl Printer {
         }
 
         if matches!(size, Size::Fixed(size) if size <= self.line_size_budget) {
-            let group = Group::new(LineFit::Fits, token.breaks_kind);
+            let group = Group::new(LineFit::Fits, token.break_style);
             self.groups_stack.push(group);
             return;
         }
@@ -130,7 +130,7 @@ impl Printer {
         };
 
         self.groups_stack
-            .push(Group::new(line_fit, token.breaks_kind));
+            .push(Group::new(line_fit, token.break_style));
 
         self.indent = self.add_indent(token.indent_diff);
     }
@@ -143,9 +143,9 @@ impl Printer {
         }
 
         if self.config.debug_layout {
-            self.output.push(match top_group.breaks_kind {
-                BreaksKind::Consistent => '»',
-                BreaksKind::Inconsistent => '›',
+            self.output.push(match top_group.break_style {
+                BreakStyle::Consistent => '»',
+                BreakStyle::Compact => '›',
             });
         }
     }
@@ -175,10 +175,10 @@ impl Printer {
             return true;
         }
 
-        // Even if the group is broken, we still try to fit the tokens
-        // on the same line if the break is inconsistent, which is the
-        // whole purpose of "consistent/inconsistent" distinction.
-        top_group.breaks_kind == BreaksKind::Inconsistent && size <= self.line_size_budget
+        // Even if the group is broken, we still try to fit the tokens on the
+        // same line if the break is compact, which is the whole purpose of
+        // "consistent/compact" distinction.
+        top_group.break_style == BreakStyle::Compact && size <= self.line_size_budget
     }
 
     pub(super) fn break_(&mut self, token: &Break, size: Size) {
@@ -205,7 +205,7 @@ impl Printer {
         self.line_size_budget = self.config.line_size.saturating_sub(indent);
     }
 
-    pub(super) fn literal(&mut self, text: &str) {
+    pub(super) fn raw(&mut self, text: &str) {
         self.print_pending_spaces();
         self.output.push_str(text);
         self.line_size_budget = self.line_size_budget.saturating_sub(text.width());

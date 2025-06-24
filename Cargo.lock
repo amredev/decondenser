@@ -121,6 +121,7 @@ dependencies = [
  "anyhow",
  "clap",
  "decondenser",
+ "unicode-width",
 ]
 
 [[package]]

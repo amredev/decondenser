@@ -19,13 +19,17 @@ repository = { workspace = true }
 workspace = true
 
 [features]
-default        = []
-unstable_debug = []
+default = []
+
+# Don't use this feature! It's only for internal private use within the
+# decondenser crates. Any breaking changes to the unstable API will not cause
+# major version bumps.
+unstable = []
 
 [dependencies]
-unicode-width = { version = "0.2.1", default-features = false }
 
 [dev-dependencies]
-expect-test = "1.5"
-serde_json  = "1.0"
-toml_edit   = "0.22"
+expect-test   = "1.5"
+serde_json    = "1.0"
+toml_edit     = "0.22"
+unicode-width = { workspace = true }

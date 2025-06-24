@@ -1,9 +1,11 @@
 //! Adapted from <https://github.com/nik-rev/simply-colored/blob/77b3c4c2df572494992cecb59d420e7e0569a8a9/src/lib.rs>
 #![expect(
     dead_code,
-    reason = "This is just a bag of constants that we may or may not use. \
-        The list of used constants can change any time, so unused items may \
-        suddenly become needed"
+    reason = "
+        This is just a bag of constants that we may or may not use.
+        The list of used constants can change any time, so unused items may
+        suddenly become needed
+    "
 )]
 
 /// Reset styling

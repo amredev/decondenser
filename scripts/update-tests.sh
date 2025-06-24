@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 
-UPDATE_EXPECT=1 cargo test -p decondenser --lib
+set -euo pipefail
+
+. "$(dirname "${BASH_SOURCE[0]}")/utils/lib.sh"
+
+UPDATE_EXPECT=1 step cargo test -p decondenser --lib

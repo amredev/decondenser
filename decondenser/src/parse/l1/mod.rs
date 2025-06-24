@@ -3,13 +3,13 @@ mod cursor;
 
 pub(crate) use ast::*;
 
-use crate::{Decondenser, GroupConfig, QuoteConfig, Str};
+use crate::{Decondenser, config};
 use cursor::Cursor;
 use std::mem;
 
 pub(crate) struct ParseParams<'a> {
     pub(crate) input: &'a str,
-    pub(crate) config: &'a Decondenser<'a>,
+    pub(crate) config: &'a Decondenser,
 }
 
 pub(crate) fn parse(params: &ParseParams<'_>) -> Vec<AstNode> {
@@ -23,13 +23,13 @@ pub(crate) fn parse(params: &ParseParams<'_>) -> Vec<AstNode> {
 }
 
 struct Parser<'a> {
-    config: &'a Decondenser<'a>,
+    config: &'a Decondenser,
     cursor: Cursor<'a>,
     output: Vec<AstNode>,
 }
 
 impl Parser<'_> {
-    fn parse(&mut self, terminator: Option<&Str<'_>>) -> Option<usize> {
+    fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
             if char.is_whitespace() {
                 if !matches!(self.output.last(), Some(AstNode::Space { .. })) {
@@ -67,7 +67,7 @@ impl Parser<'_> {
                 .config
                 .puncts
                 .iter()
-                .find_map(|punct| self.cursor.strip_prefix(punct));
+                .find_map(|punct| self.cursor.strip_prefix(&punct.content));
 
             if let Some(start) = punct {
                 self.output.push(AstNode::Punct { start });
@@ -85,21 +85,21 @@ impl Parser<'_> {
         None
     }
 
-    fn parse_group(&mut self, opening: usize, group_cfg: &GroupConfig<'_>) {
+    fn parse_group(&mut self, opening: usize, group_cfg: &config::Group) {
         let prev = mem::take(&mut self.output);
 
         let closing = self.parse(Some(&group_cfg.closing));
 
         let group = Group {
             opening,
-            content: mem::replace(&mut self.output, prev).into(),
+            content: mem::replace(&mut self.output, prev),
             closing,
         };
 
         self.output.push(AstNode::Group(group));
     }
 
-    fn parse_quoted(&mut self, opening: usize, quote_cfg: &QuoteConfig<'_>) {
+    fn parse_quoted(&mut self, opening: usize, quote_cfg: &config::Quote) {
         let mut content = vec![];
 
         let closing = loop {

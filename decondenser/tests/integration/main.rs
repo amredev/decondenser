@@ -1,4 +1,4 @@
-use crate::Decondenser;
+use decondenser::Decondenser;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -22,7 +22,8 @@ fn snapshot_tests() {
         let mut decondenser = Decondenser::generic();
 
         if let Some(line_size) = test.get("line_size") {
-            decondenser.line_size = line_size.as_integer().unwrap().try_into().unwrap();
+            let line_size = line_size.as_integer().unwrap().try_into().unwrap();
+            decondenser = decondenser.line_size(line_size);
         }
 
         test["output"] = decondenser.decondense(input).into();

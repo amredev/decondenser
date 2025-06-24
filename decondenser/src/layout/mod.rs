@@ -16,7 +16,7 @@ mod printer;
 mod sliding_deque;
 mod token;
 
-pub(crate) use token::BreaksKind;
+pub(crate) use crate::BreakStyle;
 
 use self::printer::Printer;
 use self::sliding_deque::SlidingDeque;
@@ -25,7 +25,7 @@ use crate::Decondenser;
 use crate::utils::debug_panic;
 use std::collections::VecDeque;
 use std::fmt;
-use token::{Literal, Size, SizeMeasurement};
+use token::{Raw, Size, SizeMeasurement};
 
 #[derive(Debug)]
 pub(crate) struct Layout<'a> {
@@ -60,7 +60,7 @@ pub(crate) struct BreakParams {
 }
 
 impl<'a> Layout<'a> {
-    pub(crate) fn new(config: &Decondenser<'_>) -> Self {
+    pub(crate) fn new(config: &Decondenser) -> Self {
         Layout {
             tokens: SlidingDeque::new(),
             printed_single_line_size: 0,
@@ -83,13 +83,13 @@ impl<'a> Layout<'a> {
         self.unmeasured_indices.push_back(index);
     }
 
-    pub(crate) fn begin(&mut self, offset: isize, breaks_kind: BreaksKind) {
+    pub(crate) fn begin(&mut self, offset: isize, break_style: BreakStyle) {
         self.push_unmeasured(Token::Begin(Begin {
             size: SizeMeasurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
             indent_diff: offset,
-            breaks_kind,
+            break_style,
         }));
     }
 
@@ -131,15 +131,14 @@ impl<'a> Layout<'a> {
             .saturating_add(params.blank_space);
     }
 
-    pub(crate) fn literal(&mut self, text: &'a str) {
+    pub(crate) fn raw(&mut self, text: &'a str) {
         if self.unmeasured_indices.is_empty() {
-            self.printer.literal(text);
+            self.printer.raw(text);
             return;
         }
 
         let size = text.len();
-        self.tokens
-            .push_back(Token::Literal(Literal { size, text }));
+        self.tokens.push_back(Token::Raw(Raw { size, text }));
 
         self.total_single_line_size = self.total_single_line_size.saturating_add(size);
         self.break_if_overflow();
@@ -173,11 +172,11 @@ impl<'a> Layout<'a> {
 
         while let Some(token) = self.tokens.front() {
             match token {
-                Token::Literal(literal) => {
+                Token::Raw(raw) => {
                     self.printed_single_line_size =
-                        self.printed_single_line_size.saturating_add(literal.size);
+                        self.printed_single_line_size.saturating_add(raw.size);
 
-                    self.printer.literal(literal.text);
+                    self.printer.raw(raw.text);
                 }
                 Token::Break(break_) => {
                     let SizeMeasurement::Measured(size) = break_.size else {
@@ -245,8 +244,8 @@ impl<'a> Layout<'a> {
                         return;
                     }
                 }
-                Token::Literal(_) => {
-                    debug_panic!("Literals should never be part of unmeasured token indices");
+                Token::Raw(_) => {
+                    debug_panic!("Raw tokens should never be part of unmeasured token indices");
                 }
             }
         }
