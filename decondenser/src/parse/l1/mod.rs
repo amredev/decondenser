@@ -12,7 +12,7 @@ pub(crate) struct ParseParams<'a> {
     pub(crate) config: &'a Decondenser,
 }
 
-pub(crate) fn parse(params: &ParseParams<'_>) -> Vec<AstNode> {
+pub(crate) fn parse<'a>(params: &ParseParams<'a>) -> Vec<AstNode<'a>> {
     let mut lexer = Parser {
         config: params.config,
         cursor: Cursor::new(params.input),
@@ -25,10 +25,10 @@ pub(crate) fn parse(params: &ParseParams<'_>) -> Vec<AstNode> {
 struct Parser<'a> {
     config: &'a Decondenser,
     cursor: Cursor<'a>,
-    output: Vec<AstNode>,
+    output: Vec<AstNode<'a>>,
 }
 
-impl Parser<'_> {
+impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
             if char.is_whitespace() {
@@ -45,20 +45,20 @@ impl Parser<'_> {
                 return Some(start);
             }
 
-            let group_cfg = self.config.groups.iter().find_map(|group_cfg| {
+            let group = self.config.groups.iter().find_map(|group_cfg| {
                 Some((self.cursor.strip_prefix(&group_cfg.opening)?, group_cfg))
             });
 
-            if let Some((opening, group_cfg)) = group_cfg {
+            if let Some((opening, group_cfg)) = group {
                 self.parse_group(opening, group_cfg);
                 continue;
             }
 
-            let quote_cfg = self.config.quotes.iter().find_map(|quote_cfg| {
+            let quote = self.config.quotes.iter().find_map(|quote_cfg| {
                 Some((self.cursor.strip_prefix(&quote_cfg.opening)?, quote_cfg))
             });
 
-            if let Some((opening, quote_cfg)) = quote_cfg {
+            if let Some((opening, quote_cfg)) = quote {
                 self.parse_quoted(opening, quote_cfg);
                 continue;
             }
@@ -67,10 +67,10 @@ impl Parser<'_> {
                 .config
                 .puncts
                 .iter()
-                .find_map(|punct| self.cursor.strip_prefix(&punct.content));
+                .find_map(|punct| Some((punct, self.cursor.strip_prefix(&punct.content)?)));
 
-            if let Some(start) = punct {
-                self.output.push(AstNode::Punct { start });
+            if let Some((config, start)) = punct {
+                self.output.push(AstNode::Punct(Punct { start, config }));
                 continue;
             }
 
@@ -85,25 +85,26 @@ impl Parser<'_> {
         None
     }
 
-    fn parse_group(&mut self, opening: usize, group_cfg: &config::Group) {
+    fn parse_group(&mut self, opening: usize, config: &'a config::Group) {
         let prev = mem::take(&mut self.output);
 
-        let closing = self.parse(Some(&group_cfg.closing));
+        let closing = self.parse(Some(&config.closing));
 
         let group = Group {
             opening,
             content: mem::replace(&mut self.output, prev),
             closing,
+            config,
         };
 
         self.output.push(AstNode::Group(group));
     }
 
-    fn parse_quoted(&mut self, opening: usize, quote_cfg: &config::Quote) {
+    fn parse_quoted(&mut self, opening: usize, config: &'a config::Quote) {
         let mut content = vec![];
 
         let closing = loop {
-            let escape = quote_cfg
+            let escape = config
                 .escapes
                 .iter()
                 .find_map(|escape| self.cursor.strip_prefix(&escape.escaped));
@@ -113,7 +114,7 @@ impl Parser<'_> {
                 continue;
             }
 
-            if let Some(closing) = self.cursor.strip_prefix(&quote_cfg.closing) {
+            if let Some(closing) = self.cursor.strip_prefix(&config.closing) {
                 break Some(closing);
             }
 
@@ -131,6 +132,7 @@ impl Parser<'_> {
             opening,
             content,
             closing,
+            config,
         };
 
         self.output.push(AstNode::Quoted(quoted));

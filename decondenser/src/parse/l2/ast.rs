@@ -1,9 +1,10 @@
+use crate::config;
 use std::fmt;
 
 pub(crate) enum AstNode<'a> {
     Space(&'a str),
     Raw(&'a str),
-    Punct(&'a str),
+    Punct(&'a config::Punct),
     Group(Group<'a>),
     Quoted(Quoted<'a>),
 }
@@ -13,7 +14,7 @@ impl fmt::Debug for AstNode<'_> {
         match self {
             AstNode::Space(text) => write!(f, "space {text:?}"),
             AstNode::Raw(text) => write!(f, "raw {text:?}"),
-            AstNode::Punct(text) => write!(f, "punct {text:?}"),
+            AstNode::Punct(punct) => write!(f, "punct {:?}", punct.content),
             AstNode::Group(group) => write!(f, "group {group:?}"),
             AstNode::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
         }
@@ -21,19 +22,23 @@ impl fmt::Debug for AstNode<'_> {
 }
 
 pub(crate) struct Quoted<'a> {
-    pub(crate) opening: &'a str,
     pub(crate) content: Vec<QuotedContent<'a>>,
-    pub(crate) closing: Option<&'a str>,
+    pub(crate) closed: bool,
+    pub(crate) config: &'a config::Quote,
 }
 
 impl fmt::Debug for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let closing = if self.closed {
+            &self.config.closing
+        } else {
+            "{none}"
+        };
+
         write!(
             f,
-            "{:?} -> {:?} {:?}",
-            self.opening,
-            self.closing.unwrap_or("{none}"),
-            self.content
+            "{:?} -> {closing:?} {:?}",
+            self.config.opening, self.content
         )
     }
 }
@@ -62,19 +67,23 @@ impl<'a> QuotedContent<'a> {
 }
 
 pub(crate) struct Group<'a> {
-    pub(crate) opening: &'a str,
     pub(crate) content: Vec<AstNode<'a>>,
-    pub(crate) closing: Option<&'a str>,
+    pub(crate) closed: bool,
+    pub(crate) config: &'a config::Group,
 }
 
 impl fmt::Debug for Group<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let closing = if self.closed {
+            &self.config.closing
+        } else {
+            "{none}"
+        };
+
         write!(
             f,
-            "{:?} -> {:?} {:#?}",
-            self.opening,
-            self.closing.unwrap_or("{none}"),
-            self.content
+            "{:?} -> {closing:?} {:#?}",
+            self.config.opening, self.content
         )
     }
 }

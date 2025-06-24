@@ -119,6 +119,8 @@ impl Quote {
 #[derive(Debug, Clone)]
 pub struct Escape {
     pub(crate) escaped: String,
+
+    #[expect(dead_code, reason = "TODO: immplement unescaping API")]
     pub(crate) unescaped: String,
 }
 

@@ -11,7 +11,6 @@ impl crate::Decondenser {
                     let has_empty_line =
                         content.chars().filter(|&c| c == '\n').take(2).count() == 2;
 
-                    // todo!("Handle empty lines properly");
                     if has_empty_line {
                         layout.raw(content);
                     } else {
@@ -21,9 +20,12 @@ impl crate::Decondenser {
                 &parse::l2::AstNode::Raw(content) => {
                     layout.raw(content);
                 }
-                &parse::l2::AstNode::Punct(content) => {
-                    layout.raw(content);
-                    if matches!(content, "," | "?") {
+                &parse::l2::AstNode::Punct(punct) => {
+                    // if self.puncts(value) {}
+
+                    layout.raw(&punct.content);
+
+                    if matches!(punct.content.as_str(), "," | "?") {
                         layout.space(SpaceParams {
                             size: 1,
                             indent_diff: 0,
@@ -33,7 +35,7 @@ impl crate::Decondenser {
                 parse::l2::AstNode::Group(group) => {
                     let indent = (self.visual_size)(&self.indent).try_into().unwrap();
 
-                    layout.raw(group.opening);
+                    layout.raw(&group.config.opening);
                     layout.begin(indent, BreakStyle::Consistent);
 
                     layout.space(SpaceParams {
@@ -52,19 +54,19 @@ impl crate::Decondenser {
 
                     layout.end();
 
-                    if let Some(closing) = group.closing {
-                        layout.raw(closing);
+                    if group.closed {
+                        layout.raw(&group.config.closing);
                     }
                 }
                 parse::l2::AstNode::Quoted(quoted) => {
-                    layout.raw(quoted.opening);
+                    layout.raw(&quoted.config.opening);
 
                     for content in &quoted.content {
                         layout.raw(content.text());
                     }
 
-                    if let Some(closing) = quoted.closing {
-                        layout.raw(closing);
+                    if quoted.closed {
+                        layout.raw(&quoted.config.closing);
                     }
                 }
             }

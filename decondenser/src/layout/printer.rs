@@ -1,7 +1,6 @@
 use super::Size;
 use super::token::{Begin, Space};
 use crate::{BreakStyle, Decondenser};
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Copy, Clone)]
 enum LineFit {
