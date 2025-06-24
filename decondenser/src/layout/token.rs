@@ -6,15 +6,14 @@ use std::fmt;
 pub(super) enum Token<'a> {
     Begin(Begin),
     Raw(Raw<'a>),
-    Break(Break),
+    Space(Space),
     End,
 }
 
 pub(super) struct Begin {
-    /// The size measurement for this token is initially delayed. It is
-    /// eventually set to the sum of single-line sizes of all [`Token::Raw`] and
-    /// [`Token::Break`].
-    pub(super) size: SizeMeasurement,
+    /// Calculated as the distance to the next [`Token::Space`] that follows
+    /// the paired [`Token::End`] on the same level of nesting or EOF.
+    pub(super) next_space_distance: Measurement,
 
     /// Summed with the indent before the group to calculate the indent for the
     /// content of the group.
@@ -29,18 +28,18 @@ pub(super) struct Raw<'a> {
     pub(super) text: &'a str,
 }
 
-pub(super) struct Break {
-    /// The size should eventually be set to the token's [`Break::blank_space`]
-    /// plus the sum of sizes of following [`Token::Raw`] tokens until the
-    /// next [`Token::Break`] or [`Token::End`].
-    pub(super) size: SizeMeasurement,
+pub(super) struct Space {
+    /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
+    /// all tokens until the next [`Token::Space`] on the same level of nesting
+    /// or EOF.
+    pub(super) next_space_distance: Measurement,
 
     /// Summed with the indent before the break to calculate the indent for the
     /// following content.
     pub(super) indent_diff: isize,
 
-    /// Number of spaces to insert if the break isn't turned into a line break.
-    pub(super) blank_space: usize,
+    /// Number of spaces to insert if this space isn't turned into a line break.
+    pub(super) size: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -52,7 +51,7 @@ pub(super) enum Size {
     Infinite,
 }
 
-pub(super) enum SizeMeasurement {
+pub(super) enum Measurement {
     Measured(Size),
 
     /// We are yet in the process of calculating the size of the token
@@ -61,7 +60,7 @@ pub(super) enum SizeMeasurement {
     },
 }
 
-impl SizeMeasurement {
+impl Measurement {
     /// Set the size to [`MaybeSize::Calculated`] as a diff between
     /// `planned_size` and the stored `preceding_tokens_size`.
     pub(super) fn measure_from(&mut self, planned_size: usize) {
@@ -77,7 +76,7 @@ impl SizeMeasurement {
     }
 }
 
-impl fmt::Debug for SizeMeasurement {
+impl fmt::Debug for Measurement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Measured(size) => fmt::Debug::fmt(size, f),
@@ -117,12 +116,12 @@ impl fmt::Debug for Raw<'_> {
     }
 }
 
-impl fmt::Debug for Break {
+impl fmt::Debug for Space {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            size,
+            next_space_distance: size,
             indent_diff,
-            blank_space,
+            size: blank_space,
         } = self;
 
         write!(f, "{size:?}{GREEN}{BOLD}Break{NO_BOLD} {blank_space}")?;
@@ -138,7 +137,7 @@ impl fmt::Debug for Break {
 impl fmt::Debug for Begin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            size,
+            next_space_distance: size,
             indent_diff,
             break_style,
         } = self;
@@ -157,7 +156,7 @@ impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Raw(token) => write!(f, "{token:?}"),
-            Self::Break(token) => write!(f, "{token:?}"),
+            Self::Space(token) => write!(f, "{token:?}"),
             Self::Begin(token) => write!(f, "{token:?}"),
             Self::End => write!(f, "{BLACK}  - {BLUE}End{RESET}"),
         }

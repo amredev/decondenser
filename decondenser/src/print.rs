@@ -1,4 +1,4 @@
-use crate::layout::{BreakParams, Layout};
+use crate::layout::{Layout, SpaceParams};
 use crate::{BreakStyle, parse};
 
 impl crate::Decondenser {
@@ -24,8 +24,8 @@ impl crate::Decondenser {
                 &parse::l2::AstNode::Punct(content) => {
                     layout.raw(content);
                     if matches!(content, "," | "?") {
-                        layout.break_(BreakParams {
-                            blank_space: 1,
+                        layout.space(SpaceParams {
+                            size: 1,
                             indent_diff: 0,
                         });
                     }
@@ -36,16 +36,16 @@ impl crate::Decondenser {
                     layout.raw(group.opening);
                     layout.begin(indent, BreakStyle::Consistent);
 
-                    layout.break_(BreakParams {
-                        blank_space: 1,
+                    layout.space(SpaceParams {
+                        size: 1,
                         indent_diff: 0,
                     });
 
                     self.print(layout, &group.content);
 
                     if !group.content.is_empty() {
-                        layout.break_(BreakParams {
-                            blank_space: 1,
+                        layout.space(SpaceParams {
+                            size: 1,
                             indent_diff: -indent,
                         });
                     }

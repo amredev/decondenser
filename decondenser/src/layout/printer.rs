@@ -1,5 +1,5 @@
 use super::Size;
-use super::token::{Begin, Break};
+use super::token::{Begin, Space};
 use crate::{BreakStyle, Decondenser};
 use unicode_width::UnicodeWidthStr;
 
@@ -31,21 +31,18 @@ impl Group {
 }
 
 #[derive(Debug)]
-struct RendererConfig {
+struct PrinterConfig {
     line_size: usize,
-
-    /// Output control characters for debugging the layout logic
     debug_layout: bool,
-
-    /// Output indentation characters for debugging the indent logic
     debug_indent: bool,
+    visual_size: fn(&str) -> usize,
 }
 
 #[derive(Debug)]
 pub(super) struct Printer {
     /// Constant values intentionally separated out of the struct to group them
     /// together for readability. Everything else in this struct is mutable.
-    config: RendererConfig,
+    config: PrinterConfig,
 
     /// Output string being built
     pub(super) output: String,
@@ -53,7 +50,7 @@ pub(super) struct Printer {
     /// Spare budget of size left on the current line.
     ///
     /// Can be zero if the last printed token was >= in size than the
-    /// [`RendererConfig::line_size`] limit, and all possible breaks on the left
+    /// [`PrinterConfig::line_size`] limit, and all possible breaks on the left
     /// side of that could be done were already done. I.e. - there is no way to
     /// fit the token into the limit without breaking somewhere in the middle of
     /// some token, which is not allowed.
@@ -78,10 +75,11 @@ pub(super) struct Printer {
 impl Printer {
     pub(super) fn new(config: &Decondenser) -> Self {
         Self {
-            config: RendererConfig {
+            config: PrinterConfig {
                 line_size: config.line_size,
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
+                visual_size: config.visual_size,
             },
             output: String::new(),
             line_size_budget: config.line_size,
@@ -91,7 +89,7 @@ impl Printer {
         }
     }
 
-    pub(super) fn begin(&mut self, token: &Begin, size: Size) {
+    pub(super) fn begin(&mut self, token: &Begin, next_space_distance: Size) {
         if self.config.debug_layout {
             self.output.push(match token.break_style {
                 BreakStyle::Consistent => '«',
@@ -119,7 +117,7 @@ impl Printer {
             self.output.extend(chars);
         }
 
-        if matches!(size, Size::Fixed(size) if size <= self.line_size_budget) {
+        if matches!(next_space_distance, Size::Fixed(size) if size <= self.line_size_budget) {
             let group = Group::new(LineFit::Fits, token.break_style);
             self.groups_stack.push(group);
             return;
@@ -162,7 +160,7 @@ impl Printer {
         })
     }
 
-    fn break_fits(&self, size: Size) -> bool {
+    fn next_token_sequence_fits(&self, size: Size) -> bool {
         let Size::Fixed(size) = size else {
             return false;
         };
@@ -181,10 +179,10 @@ impl Printer {
         top_group.break_style == BreakStyle::Compact && size <= self.line_size_budget
     }
 
-    pub(super) fn break_(&mut self, token: &Break, size: Size) {
-        if self.break_fits(size) {
-            self.pending_spaces += token.blank_space;
-            self.line_size_budget = self.line_size_budget.saturating_sub(token.blank_space);
+    pub(super) fn space(&mut self, token: &Space, next_space_distance: Size) {
+        if self.next_token_sequence_fits(next_space_distance) {
+            self.pending_spaces += token.size;
+            self.line_size_budget = self.line_size_budget.saturating_sub(token.size);
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -208,7 +206,9 @@ impl Printer {
     pub(super) fn raw(&mut self, text: &str) {
         self.print_pending_spaces();
         self.output.push_str(text);
-        self.line_size_budget = self.line_size_budget.saturating_sub(text.width());
+        self.line_size_budget = self
+            .line_size_budget
+            .saturating_sub((self.config.visual_size)(text));
     }
 
     fn print_pending_spaces(&mut self) {

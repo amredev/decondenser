@@ -20,12 +20,12 @@ pub(crate) use crate::BreakStyle;
 
 use self::printer::Printer;
 use self::sliding_deque::SlidingDeque;
-use self::token::{Begin, Break, Token};
+use self::token::{Begin, Space, Token};
 use crate::Decondenser;
 use crate::utils::debug_panic;
 use std::collections::VecDeque;
 use std::fmt;
-use token::{Raw, Size, SizeMeasurement};
+use token::{Measurement, Raw, Size};
 
 #[derive(Debug)]
 pub(crate) struct Layout<'a> {
@@ -34,7 +34,7 @@ pub(crate) struct Layout<'a> {
     /// from a regular [`VecDeque`].
     tokens: SlidingDeque<Token<'a>>,
 
-    /// Holds indices of [`Token::Begin`] and [`Token::Break`] tokens that are
+    /// Holds indices of [`Token::Begin`] and [`Token::Space`] tokens that are
     /// not yet measured. Also, includes [`Token::End`] tokens so that we can
     /// track the levels of nesting when traversing this buffer for measurement.
     unmeasured_indices: VecDeque<usize>,
@@ -54,9 +54,9 @@ pub(crate) struct Layout<'a> {
 }
 
 #[derive(Default, Clone, Copy)]
-pub(crate) struct BreakParams {
+pub(crate) struct SpaceParams {
     pub(crate) indent_diff: isize,
-    pub(crate) blank_space: usize,
+    pub(crate) size: usize,
 }
 
 impl<'a> Layout<'a> {
@@ -85,7 +85,7 @@ impl<'a> Layout<'a> {
 
     pub(crate) fn begin(&mut self, offset: isize, break_style: BreakStyle) {
         self.push_unmeasured(Token::Begin(Begin {
-            size: SizeMeasurement::Unmeasured {
+            next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
             indent_diff: offset,
@@ -101,15 +101,15 @@ impl<'a> Layout<'a> {
 
         let mut tokens = self.tokens.iter();
 
-        // Special case for a `Begin Break End` sequence. In this case, we just
+        // Special case for a `Begin Space End` sequence. In this case, we just
         // can just remove it entirely, since the group is empty.
-        if let Some(&Token::Break(Break { blank_space, .. })) = tokens.next_back() {
+        if let Some(&Token::Space(Space { size, .. })) = tokens.next_back() {
             if let Some(Token::Begin(_)) = tokens.next_back() {
                 self.tokens.pop_back();
                 self.tokens.pop_back();
                 self.unmeasured_indices.pop_back();
                 self.unmeasured_indices.pop_back();
-                self.total_single_line_size -= blank_space;
+                self.total_single_line_size -= size;
                 return;
             }
         }
@@ -117,18 +117,16 @@ impl<'a> Layout<'a> {
         self.push_unmeasured(Token::End);
     }
 
-    pub(crate) fn break_(&mut self, params: BreakParams) {
+    pub(crate) fn space(&mut self, params: SpaceParams) {
         self.measure_tokens();
-        self.push_unmeasured(Token::Break(Break {
+        self.push_unmeasured(Token::Space(Space {
             indent_diff: params.indent_diff,
-            blank_space: params.blank_space,
-            size: SizeMeasurement::Unmeasured {
+            size: params.size,
+            next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
         }));
-        self.total_single_line_size = self
-            .total_single_line_size
-            .saturating_add(params.blank_space);
+        self.total_single_line_size = self.total_single_line_size.saturating_add(params.size);
     }
 
     pub(crate) fn raw(&mut self, text: &'a str) {
@@ -153,10 +151,18 @@ impl<'a> Layout<'a> {
             }
 
             // We know that the content overflows, and if there is a chance to
-            // break a group or turn a break into a line break, do it by
+            // break a group or turn a space into a line break, do it by
             // assigning infinite size to the unmeasured token.
-            if let Token::Break(Break { size, .. }) | Token::Begin(Begin { size, .. }) = token {
-                *size = SizeMeasurement::Measured(Size::Infinite);
+            if let Token::Space(Space {
+                next_space_distance,
+                ..
+            })
+            | Token::Begin(Begin {
+                next_space_distance,
+                ..
+            }) = token
+            {
+                *next_space_distance = Measurement::Measured(Size::Infinite);
             }
 
             if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {
@@ -178,22 +184,21 @@ impl<'a> Layout<'a> {
 
                     self.printer.raw(raw.text);
                 }
-                Token::Break(break_) => {
-                    let SizeMeasurement::Measured(size) = break_.size else {
+                Token::Space(space) => {
+                    let Measurement::Measured(distance) = space.next_space_distance else {
                         return;
                     };
 
-                    self.printed_single_line_size = self
-                        .printed_single_line_size
-                        .saturating_add(break_.blank_space);
+                    self.printed_single_line_size =
+                        self.printed_single_line_size.saturating_add(space.size);
 
-                    self.printer.break_(break_, size);
+                    self.printer.space(space, distance);
                 }
                 Token::Begin(begin) => {
-                    let SizeMeasurement::Measured(size) = begin.size else {
+                    let Measurement::Measured(distance) = begin.next_space_distance else {
                         return;
                     };
-                    self.printer.begin(begin, size);
+                    self.printer.begin(begin, distance);
                 }
                 Token::End { .. } => {
                     if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {
@@ -230,16 +235,20 @@ impl<'a> Layout<'a> {
                         return;
                     }
                     pop_back_unmeasured();
-                    token.size.measure_from(self.total_single_line_size);
+                    token
+                        .next_space_distance
+                        .measure_from(self.total_single_line_size);
                     depth -= 1;
                 }
                 Token::End => {
                     pop_back_unmeasured();
                     depth += 1;
                 }
-                Token::Break(token) => {
+                Token::Space(token) => {
                     pop_back_unmeasured();
-                    token.size.measure_from(self.total_single_line_size);
+                    token
+                        .next_space_distance
+                        .measure_from(self.total_single_line_size);
                     if depth == 0 {
                         return;
                     }
