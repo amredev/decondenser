@@ -68,7 +68,7 @@ jobs:
       - run: cargo-component bindings
       - run: cargo doc --no-deps
 
-  rust-stable:
+  cargo-clippy:
     runs-on: ${{ matrix.os }}-latest
 
     continue-on-error: ${{ matrix.locked == '' }}
@@ -92,6 +92,34 @@ jobs:
       - run: cargo-component bindings
 
       - run: cargo clippy ${{ matrix.locked }} --all-features --all-targets
+
+  cargo-test:
+    runs-on: ${{ matrix.os }}-latest
+
+    continue-on-error: ${{ matrix.locked == '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos, windows]
+        locked: [--locked, ""]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: cargo-component
+          version: dev
+      - uses: amredev/imaginarium/install@main
+        with:
+          tool: taplo
+          version: 0.10.0
+
+      - run: cargo-component bindings
+
       - run: cargo test ${{ matrix.locked }} --all-features --all-targets
       - run: cargo test ${{ matrix.locked }} --all-features --doc
 
