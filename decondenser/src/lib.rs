@@ -155,6 +155,7 @@ impl Decondenser {
     }
 
     /// Lines shorter than this will never be broken up at any indentation level.
+    #[must_use]
     pub fn no_break_size(mut self, value: usize) -> Self {
         self.no_break_size = value;
         self
