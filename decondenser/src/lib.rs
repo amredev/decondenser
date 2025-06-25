@@ -23,7 +23,8 @@ use str::IntoString;
 #[derive(Debug, Clone)]
 pub struct Decondenser {
     pub(crate) indent: String,
-    pub(crate) line_size: usize,
+    pub(crate) max_line_size: usize,
+    pub(crate) no_break_size: usize,
     pub(crate) groups: Vec<Group>,
     pub(crate) quotes: Vec<Quote>,
     pub(crate) puncts: Vec<Punct>,
@@ -50,14 +51,21 @@ impl Decondenser {
         Self {
             debug_indent: false,
             debug_layout: false,
-            line_size: 80,
+            max_line_size: 80,
+            no_break_size: 40,
             indent: "    ".into_string(),
+            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+
             groups: vec![
-                Group::new("(", ")"),
-                Group::new("[", "]"),
-                Group::new("{", "}"),
-                Group::new("<", ">"),
+                Group::new(GroupDelim::new("("), GroupDelim::new(")")),
+                Group::new(GroupDelim::new("["), GroupDelim::new("]")),
+                Group::new(
+                    GroupDelim::new("{").leading_space(" ").trailing_space(" "),
+                    GroupDelim::new("}").leading_space(" "),
+                ),
+                Group::new(GroupDelim::new("<"), GroupDelim::new(">")),
             ],
+
             quotes: vec![
                 Quote::new("\"", "\"").escapes(vec![
                     Escape::new("\\n", "\n"),
@@ -76,25 +84,44 @@ impl Decondenser {
                     Escape::new("\\'", "'"),
                 ]),
             ],
-            puncts: vec![
-                Punct::new("=>"),
-                Punct::new("->"),
-                Punct::new("||"),
-                Punct::new("&&"),
-                Punct::new(".."),
-                Punct::new(","),
-                Punct::new(";"),
-                Punct::new(":"),
-                Punct::new("."),
-                Punct::new("="),
-                Punct::new("?"),
-            ],
 
-            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+            puncts: vec![
+                Punct::new(",").trailing_space(Space::new(" ").break_if_needed(true)),
+                Punct::new(";").trailing_space(Space::new(" ").break_if_needed(true)),
+                Punct::new(":").trailing_space(Space::new(" ")),
+                Punct::new("=>")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+                Punct::new("!==")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+                Punct::new("===")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+                Punct::new("!=")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+                Punct::new("==")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+                Punct::new("=")
+                    .leading_space(Space::new(" "))
+                    .trailing_space(Space::new(" ")),
+            ],
         }
     }
 
-    /// Format any text according to brackets nesting and other simple rules.
+    /// Pretty-print any text based on brackets nesting.
+    ///
+    /// If the content is too big to fit into a single line of this size, it'll
+    /// be broken into several lines. If the content is too small so that it
+    /// doesn't fill the entire line, then several lines can be condensed into a
+    /// single line.
+    ///
+    /// There is no guarantee that the output will not contain lines longer than
+    /// this size. For example, a single long string literal or a long sequence
+    /// of non-whitespace characters may span more than this many characters,
+    /// and decondenser does not currently attempt to break these up.
     #[must_use]
     pub fn decondense(&self, input: &str) -> String {
         let ast = parse::l2::parse(&parse::l1::ParseParams {
@@ -111,19 +138,25 @@ impl Decondenser {
         layout.eof()
     }
 
-    /// String that is used to create a single level of indentation nesting.
+    /// String to use as a single level of indentation nesting.
     #[must_use]
     pub fn indent(mut self, value: impl IntoString) -> Self {
         self.indent = value.into_string();
         self
     }
 
-    /// Max number of characters per line.
+    /// Best-effort max size of a line to fit into.
     ///
-    /// The width of each character is measured with the `unicode_width` crate.
+    /// See how size is calculated in the docs for [`Self::visual_size()`].
     #[must_use]
-    pub fn line_size(mut self, value: usize) -> Self {
-        self.line_size = value;
+    pub fn max_line_size(mut self, value: usize) -> Self {
+        self.max_line_size = value;
+        self
+    }
+
+    /// Lines shorter than this will never be broken up at any indentation level.
+    pub fn no_break_size(mut self, value: usize) -> Self {
+        self.no_break_size = value;
         self
     }
 

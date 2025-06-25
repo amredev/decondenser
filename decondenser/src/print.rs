@@ -1,45 +1,87 @@
+use crate::BreakStyle;
 use crate::layout::{Layout, SpaceParams};
-use crate::{BreakStyle, parse};
+use crate::parse::l2::AstNode;
 
 impl crate::Decondenser {
-    pub(crate) fn print<'a>(&self, layout: &mut Layout<'a>, nodes: &[parse::l2::AstNode<'a>]) {
+    pub(crate) fn print<'a>(&self, layout: &mut Layout<'a>, nodes: &[AstNode<'a>]) {
         let mut nodes = nodes.iter();
+
+        // Skip leading space if it exists
+        if let Some(AstNode::Space(_)) = nodes.clone().next() {
+            nodes.next();
+        }
 
         while let Some(node) = nodes.next() {
             match node {
-                &parse::l2::AstNode::Space(content) => {
+                &AstNode::Space(content) => {
                     let has_empty_line =
                         content.chars().filter(|&c| c == '\n').take(2).count() == 2;
 
                     if has_empty_line {
-                        layout.raw(content);
-                    } else {
-                        layout.raw(" ");
+                        // TODO: Make this configurable with something like
+                        // `preserve_newlines` bool?
+                    }
+
+                    let next = nodes.clone().next();
+
+                    match next {
+                        Some(AstNode::Punct(_) | AstNode::Group(_)) | None => {
+                            // Punct and Group delimiters define their own
+                            // leading whitespace, and we also don't want to
+                            // output trailing whitespace at the end of output,
+                            // so skip this space.
+                        }
+                        _ => {
+                            layout.raw(" ");
+                        }
                     }
                 }
-                &parse::l2::AstNode::Raw(content) => {
+                &AstNode::Raw(content) => {
                     layout.raw(content);
                 }
-                &parse::l2::AstNode::Punct(punct) => {
-                    // if self.puncts(value) {}
+                &AstNode::Punct(punct) => {
+                    // TODO: DRY-it-up
+                    if punct.leading_space.break_if_needed {
+                        layout.space(SpaceParams {
+                            size: (self.visual_size)(&punct.leading_space.content),
+                            indent_diff: 0,
+                        });
+                    } else {
+                        layout.raw(&punct.leading_space.content);
+                    }
 
                     layout.raw(&punct.content);
 
-                    if matches!(punct.content.as_str(), "," | "?") {
+                    let next = nodes.clone().next();
+
+                    if let Some(AstNode::Space(_)) = next {
+                        nodes.next();
+                    }
+
+                    if nodes.clone().next().is_none() {
+                        return;
+                    }
+
+                    if punct.trailing_space.break_if_needed {
                         layout.space(SpaceParams {
-                            size: 1,
+                            // TODO: preserve the content of `trailing_space`
+                            size: (self.visual_size)(&punct.trailing_space.content),
                             indent_diff: 0,
                         });
+                    } else {
+                        layout.raw(&punct.trailing_space.content);
                     }
                 }
-                parse::l2::AstNode::Group(group) => {
+                AstNode::Group(group) => {
                     let indent = (self.visual_size)(&self.indent).try_into().unwrap();
 
-                    layout.raw(&group.config.opening);
+                    layout.raw(&group.config.opening.leading_space);
+                    layout.raw(&group.config.opening.content);
+
                     layout.begin(indent, BreakStyle::Consistent);
 
                     layout.space(SpaceParams {
-                        size: 1,
+                        size: (self.visual_size)(&group.config.opening.trailing_space),
                         indent_diff: 0,
                     });
 
@@ -47,7 +89,7 @@ impl crate::Decondenser {
 
                     if !group.content.is_empty() {
                         layout.space(SpaceParams {
-                            size: 1,
+                            size: (self.visual_size)(&group.config.closing.leading_space),
                             indent_diff: -indent,
                         });
                     }
@@ -55,10 +97,15 @@ impl crate::Decondenser {
                     layout.end();
 
                     if group.closed {
-                        layout.raw(&group.config.closing);
+                        layout.raw(&group.config.closing.content);
+                        layout.raw(&group.config.closing.trailing_space);
+
+                        if let Some(AstNode::Space(_)) = nodes.clone().next() {
+                            nodes.next();
+                        }
                     }
                 }
-                parse::l2::AstNode::Quoted(quoted) => {
+                AstNode::Quoted(quoted) => {
                     layout.raw(&quoted.config.opening);
 
                     for content in &quoted.content {

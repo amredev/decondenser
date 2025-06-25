@@ -75,7 +75,7 @@ pub(crate) struct Group<'a> {
 impl fmt::Debug for Group<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let closing = if self.closed {
-            &self.config.closing
+            &self.config.closing.content
         } else {
             "{none}"
         };

@@ -8,20 +8,20 @@ use crate::str::IntoString;
 #[derive(Debug, Clone)]
 pub struct Group {
     /// The sequence that opens the group.
-    pub(crate) opening: String,
+    pub(crate) opening: GroupDelim,
 
     /// The sequence that closes the group.
-    pub(crate) closing: String,
+    pub(crate) closing: GroupDelim,
 
     pub(crate) break_style: BreakStyle,
 }
 
 impl Group {
     /// Creates a new [`Group`] with the given opening and closing delimiters.
-    pub fn new(opening: impl IntoString, closing: impl IntoString) -> Self {
+    pub fn new(opening: GroupDelim, closing: GroupDelim) -> Self {
         Self {
-            opening: opening.into_string(),
-            closing: closing.into_string(),
+            opening,
+            closing,
             break_style: BreakStyle::Consistent,
         }
     }
@@ -32,6 +32,39 @@ impl Group {
     #[must_use]
     pub fn break_style(mut self) -> Self {
         self.break_style = BreakStyle::Consistent;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GroupDelim {
+    pub(crate) leading_space: String,
+    pub(crate) content: String,
+    pub(crate) trailing_space: String,
+}
+
+impl GroupDelim {
+    /// Creates a new [`GroupDelim`] with the given leading, content and
+    /// trailing spaces.
+    #[must_use]
+    pub fn new(content: impl IntoString) -> Self {
+        Self {
+            leading_space: "".into(),
+            content: content.into_string(),
+            trailing_space: "".into(),
+        }
+    }
+
+    /// Defines the leading space that will be added before the content of the
+    pub fn leading_space(mut self, value: impl IntoString) -> Self {
+        self.leading_space = value.into_string();
+        self
+    }
+
+    /// Defines the trailing space that will be added after the content of the
+    /// group.
+    pub fn trailing_space(mut self, value: impl IntoString) -> Self {
+        self.trailing_space = value.into_string();
         self
     }
 }
@@ -179,8 +212,8 @@ impl Punct {
 /// Defines the rules for inserting spaces and line breaks.
 #[derive(Debug, Clone)]
 pub struct Space {
-    content: String,
-    break_if_needed: bool,
+    pub(crate) content: String,
+    pub(crate) break_if_needed: bool,
 }
 
 impl Space {

@@ -1,3 +1,5 @@
+//! Integration tests for the decondenser library.
+
 use decondenser::Decondenser;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -6,8 +8,8 @@ use std::str::FromStr;
 fn snapshot_tests() {
     let tests_file = PathBuf::from_iter([
         &std::env::var("CARGO_MANIFEST_DIR").unwrap(),
-        "src",
         "tests",
+        "integration",
         "decondenser-tests.toml",
     ]);
     let tests = std::fs::read_to_string(&tests_file).unwrap();
@@ -21,9 +23,26 @@ fn snapshot_tests() {
 
         let mut decondenser = Decondenser::generic();
 
-        if let Some(line_size) = test.get("line_size") {
-            let line_size = line_size.as_integer().unwrap().try_into().unwrap();
-            decondenser = decondenser.line_size(line_size);
+        let usize = |key: &str| {
+            let value = test.get(key)?;
+            Some(value.as_integer().unwrap().try_into().unwrap())
+        };
+
+        let bool = |key: &str| {
+            let value = test.get(key)?;
+            Some(value.as_bool().unwrap())
+        };
+
+        if let Some(max_line_size) = usize("max_line_size") {
+            decondenser = decondenser.max_line_size(max_line_size);
+        }
+
+        if let Some(no_break_size) = usize("no_break_size") {
+            decondenser = decondenser.no_break_size(no_break_size);
+        }
+
+        if let Some(debug_layout) = bool("debug_layout") {
+            decondenser = decondenser.debug_layout(debug_layout);
         }
 
         test["output"] = decondenser.decondense(input).into();

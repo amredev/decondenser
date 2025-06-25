@@ -31,7 +31,8 @@ impl Group {
 
 #[derive(Debug)]
 struct PrinterConfig {
-    line_size: usize,
+    max_line_size: usize,
+    no_break_size: usize,
     debug_layout: bool,
     debug_indent: bool,
     visual_size: fn(&str) -> usize,
@@ -75,13 +76,14 @@ impl Printer {
     pub(super) fn new(config: &Decondenser) -> Self {
         Self {
             config: PrinterConfig {
-                line_size: config.line_size,
+                max_line_size: config.max_line_size,
+                no_break_size: config.no_break_size,
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
                 visual_size: config.visual_size,
             },
             output: String::new(),
-            line_size_budget: config.line_size,
+            line_size_budget: std::cmp::max(config.max_line_size, config.no_break_size),
             indent: 0,
             pending_spaces: 0,
             groups_stack: Vec::new(),
@@ -197,9 +199,12 @@ impl Printer {
         self.output.push('\n');
 
         let indent = self.add_indent(token.indent_diff);
-
         self.pending_spaces = indent;
-        self.line_size_budget = self.config.line_size.saturating_sub(indent);
+
+        self.line_size_budget = std::cmp::max(
+            self.config.max_line_size.saturating_sub(indent),
+            self.config.no_break_size,
+        );
     }
 
     pub(super) fn raw(&mut self, text: &str) {

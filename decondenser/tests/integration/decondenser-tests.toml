@@ -9,25 +9,22 @@ Family { name: "Smith", members: [Member { name: "Alice", age: 30 }, Member { na
 """
 output = """
 Test {
-    key1:"value1",
+    key1: "value1",
     "key2": "value2"
 }[
-    [ 1 ],
-    [ 2 ],
-    [ 3 ],
-
-]{
-    "key1":"value1",
-    "key2":[ 123 ]
-}
-
-Family {
-     name: "Smith",
-     members: [
-        Member {  name: "Alice",  age: 30  },
-         Member {  name: "Bob",  age: 28  }
-    ] 
-} """
+    [1],
+    [2],
+    [3],
+] {
+    "key1": "value1",
+    "key2": [123]
+}Family {
+    name: "Smith",
+    members: [
+        Member { name: "Alice", age: 30 },
+        Member { name: "Bob", age: 28 }
+    ]
+}"""
 
 ["JSON escapes"]
 input = """
@@ -37,22 +34,22 @@ input = """
 {"key": "val\tue"}
 """
 output = """
-{ "key": "\\n\\r\\t" } { "key": "val
-ue" } { "key": "val\rue" } { "key": "val\tue" } """
+ { "key": "\\n\\r\\t" } { "key": "val
+ue" } { "key": "val\rue" } { "key": "val\tue" }"""
 
 ["simple escaped JSON"]
 input = '''
 {\n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
 '''
 output = '''
-{
+ {
     \n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
 
 '''
 
 ["unterminated group"]
 input = "( group"
-output = "(  group"
+output = "(group"
 
 ["unterminated quotes"]
 input = '"unterminated'
@@ -64,15 +61,46 @@ AwsRecoveryPoint { recovery_point_arn: ResourceName { partition: Some(Identifier
 """
 output = """
 AwsRecoveryPoint {
-     recovery_point_arn: ResourceName {
-         partition: Some(
-            Identifier(  "aws"  )
-        ),
-         service: Identifier(  "ec2"  ),
-         region: Some(
-            Identifier(  "us-east-1"  )
-        ),
-         account_id: None,
-         resource: ResourceIdentifier( "image/ami-redacted" ) 
+    recovery_point_arn: ResourceName {
+        partition: Some(Identifier("aws")),
+        service: Identifier("ec2"),
+        region: Some(Identifier("us-east-1")),
+        account_id: None,
+        resource: ResourceIdentifier("image/ami-redacted")
     }
-} """
+}"""
+
+["JavaScript"]
+input = """
+const base64Compile = (str) =>
+
+    WebAssembly.compile(
+        typeof Buffer !== "undefined"
+            ? Buffer.from(str, "base64")
+            : Uint8Array.from(atob(str), (b) => b.charCodeAt(0)),
+    );
+"""
+output = """
+const base64Compile = (
+    str
+) => WebAssembly.compile(
+    typeof Buffer !== "undefined" ? Buffer.from(
+        str,
+        "base64"
+    ): Uint8Array.from(atob(str), (b) => b.charCodeAt(0)),
+);"""
+
+["Trailing comma"]
+max_line_size = 1
+no_break_size = 27
+input = """
+TimeoutConfig {
+read_timeout: Set(60s),
+connect_timeout: Set(3.1s),
+}
+"""
+output = """
+TimeoutConfig {
+    read_timeout: Set(60s),
+    connect_timeout: Set(3.1s),
+}"""

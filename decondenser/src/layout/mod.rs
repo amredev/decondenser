@@ -162,7 +162,9 @@ impl<'a> Layout<'a> {
                 ..
             }) = token
             {
-                *next_space_distance = Measurement::Measured(Size::Infinite);
+                if let Measurement::Unmeasured { .. } = next_space_distance {
+                    *next_space_distance = Measurement::Measured(Size::Infinite);
+                }
             }
 
             if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {

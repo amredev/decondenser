@@ -106,7 +106,7 @@ impl fmt::Debug for Group<'_> {
         write!(
             f,
             "({}: {} -> {closing}) {:#?}",
-            self.opening, self.config.opening, self.content
+            self.opening, self.config.opening.content, self.content
         )
     }
 }

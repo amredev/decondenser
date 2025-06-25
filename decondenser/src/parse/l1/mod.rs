@@ -46,7 +46,10 @@ impl<'a> Parser<'a> {
             }
 
             let group = self.config.groups.iter().find_map(|group_cfg| {
-                Some((self.cursor.strip_prefix(&group_cfg.opening)?, group_cfg))
+                Some((
+                    self.cursor.strip_prefix(&group_cfg.opening.content)?,
+                    group_cfg,
+                ))
             });
 
             if let Some((opening, group_cfg)) = group {
@@ -88,7 +91,7 @@ impl<'a> Parser<'a> {
     fn parse_group(&mut self, opening: usize, config: &'a config::Group) {
         let prev = mem::take(&mut self.output);
 
-        let closing = self.parse(Some(&config.closing));
+        let closing = self.parse(Some(&config.closing.content));
 
         let group = Group {
             opening,
