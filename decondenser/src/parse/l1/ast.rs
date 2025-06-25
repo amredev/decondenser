@@ -41,10 +41,9 @@ pub(crate) struct Quoted<'a> {
 
 impl fmt::Debug for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let closing: &dyn fmt::Display = if let Some(closing) = self.closing {
-            &format!("{closing}:{:?}", self.config.closing)
-        } else {
-            &"{none}"
+        let closing: &dyn fmt::Display = match &self.closing {
+            Some(closing) => &format!("{closing}:{:?}", self.config.closing),
+            None => &"{none}",
         };
 
         write!(

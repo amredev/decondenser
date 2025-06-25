@@ -33,6 +33,10 @@ redundant_pub_crate = "allow"
 # bear a macro load. Yeah, it's subjective, but a judgement call is needed.
 equatable_if_let = "allow"
 
+# This lint has too much false positives. For example this one:
+# https://github.com/rust-lang/rust-clippy/issues/15142
+option_if_let_else = "allow"
+
 # Turn on lints that are allow by default in `clippy`.
 #
 # We set them to a `warn` level instead of `deny` to prevent clippy from exiting

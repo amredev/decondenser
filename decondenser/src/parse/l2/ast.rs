@@ -12,11 +12,11 @@ pub(crate) enum AstNode<'a> {
 impl fmt::Debug for AstNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AstNode::Space(text) => write!(f, "space {text:?}"),
-            AstNode::Raw(text) => write!(f, "raw {text:?}"),
-            AstNode::Punct(punct) => write!(f, "punct {:?}", punct.content),
-            AstNode::Group(group) => write!(f, "group {group:?}"),
-            AstNode::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
+            Self::Space(text) => write!(f, "space {text:?}"),
+            Self::Raw(text) => write!(f, "raw {text:?}"),
+            Self::Punct(punct) => write!(f, "punct {:?}", punct.content),
+            Self::Group(group) => write!(f, "group {group:?}"),
+            Self::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
         }
     }
 }
@@ -51,8 +51,8 @@ pub(crate) enum QuotedContent<'a> {
 impl fmt::Debug for QuotedContent<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            QuotedContent::Raw(text) => write!(f, "qr:{text:?}"),
-            QuotedContent::Escape(text) => write!(f, "qe:{text:?}"),
+            Self::Raw(text) => write!(f, "qr:{text:?}"),
+            Self::Escape(text) => write!(f, "qe:{text:?}"),
         }
     }
 }
@@ -60,8 +60,7 @@ impl fmt::Debug for QuotedContent<'_> {
 impl<'a> QuotedContent<'a> {
     pub(crate) fn text(&self) -> &'a str {
         match self {
-            QuotedContent::Raw(text) => text,
-            QuotedContent::Escape(text) => text,
+            Self::Raw(text) | Self::Escape(text) => text,
         }
     }
 }
