@@ -29,13 +29,15 @@ Test {
 ["JSON escapes"]
 input = """
 {"key": "\\n\\r\\t"}
-{"key": "val\nue"}
-{"key": "val\rue"}
-{"key": "val\tue"}
+{"key": "val1\nval2"}
+{"key": "val1\rval2"}
+{"key": "val1\tval2"}
 """
 output = """
- { "key": "\\n\\r\\t" } { "key": "val
-ue" } { "key": "val\rue" } { "key": "val\tue" }"""
+ {
+    "key": "\\n\\r\\t"
+} { "key": "val1
+val2" } { "key": "val1\rval2" } { "key": "val1\tval2" }"""
 
 ["simple escaped JSON"]
 input = '''
