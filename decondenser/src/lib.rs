@@ -2,7 +2,6 @@
 
 mod ansi;
 mod config;
-mod error;
 mod layout;
 mod parse;
 mod print;
@@ -11,7 +10,6 @@ mod unescape;
 mod utils;
 
 pub use self::config::*;
-pub use self::error::*;
 
 use str::IntoString;
 

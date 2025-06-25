@@ -18,6 +18,7 @@ pub struct Group {
 
 impl Group {
     /// Creates a new [`Group`] with the given opening and closing delimiters.
+    #[must_use]
     pub fn new(opening: GroupDelim, closing: GroupDelim) -> Self {
         Self {
             opening,
@@ -36,6 +37,7 @@ impl Group {
     }
 }
 
+/// Describes the delimiters of a group that can be used to nest content.
 #[derive(Debug, Clone)]
 pub struct GroupDelim {
     pub(crate) leading_space: String,
@@ -49,13 +51,14 @@ impl GroupDelim {
     #[must_use]
     pub fn new(content: impl IntoString) -> Self {
         Self {
-            leading_space: "".into(),
+            leading_space: String::new(),
             content: content.into_string(),
-            trailing_space: "".into(),
+            trailing_space: String::new(),
         }
     }
 
     /// Defines the leading space that will be added before the content of the
+    #[must_use]
     pub fn leading_space(mut self, value: impl IntoString) -> Self {
         self.leading_space = value.into_string();
         self
@@ -63,6 +66,7 @@ impl GroupDelim {
 
     /// Defines the trailing space that will be added after the content of the
     /// group.
+    #[must_use]
     pub fn trailing_space(mut self, value: impl IntoString) -> Self {
         self.trailing_space = value.into_string();
         self
