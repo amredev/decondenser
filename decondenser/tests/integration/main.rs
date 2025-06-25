@@ -1,7 +1,6 @@
 //! Integration tests for the decondenser library.
 
 use decondenser::Decondenser;
-use std::env::consts::EXE_SUFFIX;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -58,8 +57,6 @@ fn snapshot_tests() {
 }
 
 fn format_toml(input: &str) -> String {
-    let var = std::env::var("PATH").unwrap();
-
     let mut child = std::process::Command::new("taplo")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
