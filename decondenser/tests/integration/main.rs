@@ -57,8 +57,8 @@ fn snapshot_tests() {
 }
 
 fn format_toml(input: &str) -> String {
-    let vars: std::collections::BTreeMap<_, _> = std::env::vars().collect();
-    eprintln!("{vars:#?}");
+    let var = std::env::var("PATH").unwrap();
+    eprintln!("PATH: {var}");
 
     let mut child = std::process::Command::new("taplo")
         .stdin(Stdio::piped())
