@@ -119,6 +119,7 @@ jobs:
           version: 0.10.0
 
       - run: cargo-component bindings
+      - run: taplo --version
 
       - run: cargo test ${{ matrix.locked }} --all-features --all-targets
       - run: cargo test ${{ matrix.locked }} --all-features --doc
