@@ -127,7 +127,7 @@ jobs:
           git diff --exit-code --color=always -- decondenser/tests/integration/decondenser-tests.toml \
           || (
             echo "decondenser-tests.toml is out of date;"
-            echo "you forgot to run scripts/update-tests.sh"
+            echo "Make sure to run scripts/update-tests.sh to update it"
             exit 1
           )
 

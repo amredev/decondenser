@@ -104,6 +104,9 @@ connect_timeout: Set(3.1s),
 """
 output = """
 TimeoutConfig {
-    read_timeout: Set(60s),
-    connect_timeout: Set(3.1s),
+    read_timeout: Set(
+        60s
+    )connect_timeout: Set(
+        3.1s
+    ),
 }"""
