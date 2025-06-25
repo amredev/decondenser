@@ -53,7 +53,8 @@ fn snapshot_tests() {
     let actual = tests.to_string();
     let actual = format_toml(&actual);
 
-    expect_test::expect_file![tests_file].assert_eq(&actual);
+    eprintln!("Updating tests at {}", tests_file.display());
+    std::fs::write(tests_file, actual).unwrap();
 }
 
 fn format_toml(input: &str) -> String {

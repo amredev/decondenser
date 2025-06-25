@@ -123,6 +123,14 @@ jobs:
       - run: env
 
       - run: cargo test ${{ matrix.locked }} --all-features --all-targets
+      - run: |
+          git diff --exit-code --color=always -- decondenser/tests/integration/decondenser-tests.toml \
+          || (
+            echo "decondenser-tests.toml is out of date;"
+            echo "you forgot to run scripts/update-tests.sh"
+            exit 1
+          )
+
       - run: cargo test ${{ matrix.locked }} --all-features --doc
 
   cargo-lock:
