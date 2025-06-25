@@ -98,7 +98,7 @@ no_break_size = 27
 
 input = """
 TimeoutConfig {
-read_timeout: Set(60s),
+read_timeout: Set(60s)
 connect_timeout: Set(3.1s),
 }
 """
