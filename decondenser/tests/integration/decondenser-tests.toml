@@ -48,11 +48,11 @@ output = '''
 '''
 
 ["unterminated group"]
-input = "( group"
+input  = "( group"
 output = "(group"
 
 ["unterminated quotes"]
-input = '"unterminated'
+input  = '"unterminated'
 output = '"unterminated'
 
 ["AWS Recovery Point struct"]
@@ -93,6 +93,7 @@ const base64Compile = (
 ["Trailing comma"]
 max_line_size = 1
 no_break_size = 27
+
 input = """
 TimeoutConfig {
 read_timeout: Set(60s),

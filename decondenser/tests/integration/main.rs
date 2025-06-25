@@ -1,7 +1,9 @@
 //! Integration tests for the decondenser library.
 
 use decondenser::Decondenser;
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::str::FromStr;
 
 #[test]
@@ -49,6 +51,38 @@ fn snapshot_tests() {
     }
 
     let actual = tests.to_string();
+    let actual = format_toml(&actual);
 
     expect_test::expect_file![tests_file].assert_eq(&actual);
+}
+
+fn format_toml(input: &str) -> String {
+    let mut child = std::process::Command::new("taplo")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .args(["fmt", "-"])
+        .spawn()
+        .unwrap_or_else(|err| panic!("Failed to invoke `taplo fmt`: {err:#?}"));
+
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+
+    let output = child.wait_with_output().unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+
+    assert!(
+        output.status.success(),
+        "taplo fmt failed with status {}\n\
+        [stdout]{stdout}\n\n[stderr]{stderr}",
+        output.status,
+    );
+
+    stdout
 }
