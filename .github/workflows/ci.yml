@@ -120,6 +120,7 @@ jobs:
 
       - run: cargo-component bindings
       - run: taplo --version
+      - run: env
 
       - run: cargo test ${{ matrix.locked }} --all-features --all-targets
       - run: cargo test ${{ matrix.locked }} --all-features --doc
