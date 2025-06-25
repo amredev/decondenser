@@ -1,6 +1,7 @@
 //! Integration tests for the decondenser library.
 
 use decondenser::Decondenser;
+use std::env::consts::EXE_SUFFIX;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -60,13 +61,15 @@ fn format_toml(input: &str) -> String {
     let var = std::env::var("PATH").unwrap();
     eprintln!("PATH: {var}");
 
-    let mut child = std::process::Command::new("taplo")
+    let taplo = format!("taplo{EXE_SUFFIX}");
+
+    let mut child = std::process::Command::new(&taplo)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .args(["fmt", "-"])
         .spawn()
-        .unwrap_or_else(|err| panic!("Failed to invoke `taplo fmt`: {err:#?}"));
+        .unwrap_or_else(|err| panic!("Failed to invoke {taplo}: {err:#?}"));
 
     child
         .stdin
