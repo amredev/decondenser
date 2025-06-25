@@ -59,17 +59,14 @@ fn snapshot_tests() {
 
 fn format_toml(input: &str) -> String {
     let var = std::env::var("PATH").unwrap();
-    eprintln!("PATH: {var}");
 
-    let taplo = format!("taplo{EXE_SUFFIX}");
-
-    let mut child = std::process::Command::new(&taplo)
+    let mut child = std::process::Command::new("taplo")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .args(["fmt", "-"])
         .spawn()
-        .unwrap_or_else(|err| panic!("Failed to invoke {taplo}: {err:#?}"));
+        .unwrap_or_else(|err| panic!("Failed to invoke taplo: {err:#?}"));
 
     child
         .stdin
