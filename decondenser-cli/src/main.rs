@@ -3,7 +3,7 @@
 use anyhow::Context;
 use clap::Parser;
 use clap::builder::Styles;
-use clap::builder::styling::{AnsiColor, Effects, Style};
+use clap::builder::styling::{AnsiColor, Effects};
 use std::io::Read;
 use std::process::ExitCode;
 
@@ -60,6 +60,8 @@ fn try_main() -> Result {
         .with_context(|| format!("Failed to write to file '{}'", cli.output))
 }
 
+// Borrowed from `clap-cargo`:
+// https://github.com/crate-ci/clap-cargo/blob/v0.15.2/src/style.rs#L8-L17
 const CLI_STYLES: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
     .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
