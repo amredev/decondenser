@@ -82,7 +82,7 @@ impl GroupDelim {
 ///
 /// Note that beaking is optional. It only takes place if the content of the
 /// group can not fit on a single line. If it does fit - it won't be broken
-/// disregarding the [`BreaksKind`].
+/// disregarding the [`BreakStyle`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum BreakStyle {
