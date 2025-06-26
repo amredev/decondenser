@@ -1,5 +1,8 @@
 # 💡 Enable word wrap when editing this file.
 # You can use `> View: Toggle Word Wrap` in VSCode.
+#
+# Run `scripts/update-tests.sh` to update the tests. This will overwrite the
+# `output` values and format the file with `taplo`.
 
 ["simple Rust debug output"]
 input = """
