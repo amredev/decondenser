@@ -1,57 +1,55 @@
+use crate::config;
 use std::fmt;
 
-pub(crate) enum AstNode {
+pub(crate) enum AstNode<'a> {
     Space { start: usize },
     Raw { start: usize },
-    Punct { start: usize },
-    Group(Group),
-    Quoted(Quoted),
+    Punct(Punct<'a>),
+    Group(Group<'a>),
+    Quoted(Quoted<'a>),
 }
 
-impl fmt::Debug for AstNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Space { start } => write!(f, "space {start}"),
-            Self::Raw { start } => write!(f, "raw {start}"),
-            Self::Punct { start } => write!(f, "punct {start}"),
-            Self::Group(group) => write!(f, "group{group:#?}"),
-            Self::Quoted(quoted) => write!(f, "quoted{quoted:#?}"),
-        }
-    }
-}
-
-impl AstNode {
+impl AstNode<'_> {
     pub(crate) fn start(&self) -> usize {
         match self {
-            Self::Space { start } | Self::Raw { start } | Self::Punct { start } => *start,
+            Self::Space { start } | Self::Raw { start } => *start,
+            Self::Punct(punct) => punct.start,
             Self::Group(group) => group.opening,
             Self::Quoted(quoted) => quoted.opening,
         }
     }
 }
 
-pub(crate) struct Quoted {
-    /// Offset of the opening quote
-    pub(crate) opening: usize,
-
-    /// Offset of the content, which is also the offset of the character that
-    /// follows the opening quote. Will be equal to `closing` if the content
-    /// is empty.
-    pub(crate) content: Vec<QuotedContent>,
-
-    /// Offset of the closing quote. Can be `None` if the quotes are not closed
-    /// (probably a malformed input).
-    pub(crate) closing: Option<usize>,
+impl fmt::Debug for AstNode<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Space { start } => write!(f, "space {start}"),
+            Self::Raw { start } => write!(f, "raw {start}"),
+            Self::Punct(punct) => write!(f, "punct{punct:#?}"),
+            Self::Group(group) => write!(f, "group{group:#?}"),
+            Self::Quoted(quoted) => write!(f, "quoted{quoted:#?}"),
+        }
+    }
 }
 
-impl fmt::Debug for Quoted {
+pub(crate) struct Quoted<'a> {
+    pub(crate) opening: usize,
+    pub(crate) content: Vec<QuotedContent>,
+    pub(crate) closing: Option<usize>,
+    pub(crate) config: &'a config::Quote,
+}
+
+impl fmt::Debug for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let closing: &dyn fmt::Display = match &self.closing {
+            Some(closing) => &format!("{closing}:{:?}", self.config.closing),
+            None => &"{none}",
+        };
+
         write!(
             f,
-            "({} -> {:?}) {:?}",
-            self.opening,
-            MaybeUsize(self.closing),
-            self.content
+            "({}: {} -> {closing}) {:?}",
+            self.opening, self.config.opening, self.content
         )
     }
 }
@@ -78,38 +76,36 @@ impl QuotedContent {
     }
 }
 
-pub(crate) struct Group {
-    /// The start offset of the opening delimiter
-    pub(crate) opening: usize,
-
-    /// The first node contains the start offset of the content of the group,
-    /// unless the group is empty.
-    pub(crate) content: Vec<AstNode>,
-
-    /// Offset of the closing delimiter. Can be `None` if the group is not closed
-    /// (probably a malformed input).
-    pub(crate) closing: Option<usize>,
+pub(crate) struct Punct<'a> {
+    pub(crate) start: usize,
+    pub(crate) config: &'a config::Punct,
 }
 
-impl fmt::Debug for Group {
+impl fmt::Debug for Punct<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "({} -> {:?}) {:#?}",
-            self.opening,
-            MaybeUsize(self.closing),
-            self.content
-        )
+        write!(f, "{}: {}", self.start, self.config.content,)
     }
 }
 
-struct MaybeUsize(Option<usize>);
+pub(crate) struct Group<'a> {
+    pub(crate) opening: usize,
+    pub(crate) content: Vec<AstNode<'a>>,
+    pub(crate) closing: Option<usize>,
+    pub(crate) config: &'a config::Group,
+}
 
-impl fmt::Debug for MaybeUsize {
+impl fmt::Debug for Group<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            Some(num) => write!(f, "{num}"),
-            None => f.write_str("{none]"),
-        }
+        let closing: &dyn fmt::Display = if let Some(closing) = self.closing {
+            &format!("{closing}:{:?}", self.config.closing)
+        } else {
+            &"{none}"
+        };
+
+        write!(
+            f,
+            "({}: {} -> {closing}) {:#?}",
+            self.opening, self.config.opening.content, self.content
+        )
     }
 }

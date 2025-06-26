@@ -9,7 +9,8 @@ license    = "Apache-2.0"
 repository = "https://github.com/amredev/decondenser"
 
 [workspace.dependencies]
-decondenser = { path = "decondenser" }
+decondenser   = { path = "decondenser" }
+unicode-width = { version = "0.2.1", default-features = false }
 
 [workspace.lints.clippy]
 # `map_or` and `map_or_else` are less readable than `map` followed
@@ -31,6 +32,10 @@ redundant_pub_crate = "allow"
 # `if let ... = ...` is a bit shorter than `if matches!(..., ...)` and doesn't
 # bear a macro load. Yeah, it's subjective, but a judgement call is needed.
 equatable_if_let = "allow"
+
+# This lint has too much false positives. For example this one:
+# https://github.com/rust-lang/rust-clippy/issues/15142
+option_if_let_else = "allow"
 
 # Turn on lints that are allow by default in `clippy`.
 #

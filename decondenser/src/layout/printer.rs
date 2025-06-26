@@ -1,7 +1,6 @@
 use super::Size;
-use super::token::{Begin, Break, BreaksKind};
-use crate::Decondenser;
-use unicode_width::UnicodeWidthStr;
+use super::token::{Begin, Space};
+use crate::{BreakStyle, Decondenser};
 
 #[derive(Debug, Copy, Clone)]
 enum LineFit {
@@ -18,42 +17,40 @@ enum LineFit {
 #[derive(Debug, Clone, Copy)]
 struct Group {
     line_fit: LineFit,
-    breaks_kind: BreaksKind,
+    break_style: BreakStyle,
 }
 
 impl Group {
-    fn new(line_fit: LineFit, breaks_kind: BreaksKind) -> Self {
+    fn new(line_fit: LineFit, break_style: BreakStyle) -> Self {
         Self {
             line_fit,
-            breaks_kind,
+            break_style,
         }
     }
 }
 
 #[derive(Debug)]
-struct RendererConfig {
-    line_size: usize,
-
-    /// Output control characters for debugging the layout logic
+struct PrinterConfig {
+    max_line_size: usize,
+    no_break_size: usize,
     debug_layout: bool,
-
-    /// Output indentation characters for debugging the indent logic
     debug_indent: bool,
+    visual_size: fn(&str) -> usize,
 }
 
 #[derive(Debug)]
 pub(super) struct Printer {
     /// Constant values intentionally separated out of the struct to group them
     /// together for readability. Everything else in this struct is mutable.
-    config: RendererConfig,
+    config: PrinterConfig,
 
     /// Output string being built
     pub(super) output: String,
 
     /// Spare budget of size left on the current line.
     ///
-    /// Can be negative if the last printed token was larger than a the
-    /// [`RendererConfig::line_size`] limit, and all possible breaks on the left
+    /// Can be zero if the last printed token was >= in size than the
+    /// [`PrinterConfig::line_size`] limit, and all possible breaks on the left
     /// side of that could be done were already done. I.e. - there is no way to
     /// fit the token into the limit without breaking somewhere in the middle of
     /// some token, which is not allowed.
@@ -76,26 +73,28 @@ pub(super) struct Printer {
 }
 
 impl Printer {
-    pub(super) fn new(config: &Decondenser<'_>) -> Self {
+    pub(super) fn new(config: &Decondenser) -> Self {
         Self {
-            config: RendererConfig {
-                line_size: config.line_size,
+            config: PrinterConfig {
+                max_line_size: config.max_line_size,
+                no_break_size: config.no_break_size,
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
+                visual_size: config.visual_size,
             },
             output: String::new(),
-            line_size_budget: config.line_size,
+            line_size_budget: std::cmp::max(config.max_line_size, config.no_break_size),
             indent: 0,
             pending_spaces: 0,
             groups_stack: Vec::new(),
         }
     }
 
-    pub(super) fn begin(&mut self, token: &Begin, size: Size) {
+    pub(super) fn begin(&mut self, token: &Begin, next_space_distance: Size) {
         if self.config.debug_layout {
-            self.output.push(match token.breaks_kind {
-                BreaksKind::Consistent => '«',
-                BreaksKind::Inconsistent => '‹',
+            self.output.push(match token.break_style {
+                BreakStyle::Consistent => '«',
+                BreakStyle::Compact => '‹',
             });
         }
 
@@ -119,8 +118,8 @@ impl Printer {
             self.output.extend(chars);
         }
 
-        if matches!(size, Size::Fixed(size) if size <= self.line_size_budget) {
-            let group = Group::new(LineFit::Fits, token.breaks_kind);
+        if matches!(next_space_distance, Size::Fixed(size) if size <= self.line_size_budget) {
+            let group = Group::new(LineFit::Fits, token.break_style);
             self.groups_stack.push(group);
             return;
         }
@@ -130,7 +129,7 @@ impl Printer {
         };
 
         self.groups_stack
-            .push(Group::new(line_fit, token.breaks_kind));
+            .push(Group::new(line_fit, token.break_style));
 
         self.indent = self.add_indent(token.indent_diff);
     }
@@ -143,9 +142,9 @@ impl Printer {
         }
 
         if self.config.debug_layout {
-            self.output.push(match top_group.breaks_kind {
-                BreaksKind::Consistent => '»',
-                BreaksKind::Inconsistent => '›',
+            self.output.push(match top_group.break_style {
+                BreakStyle::Consistent => '»',
+                BreakStyle::Compact => '›',
             });
         }
     }
@@ -162,7 +161,7 @@ impl Printer {
         })
     }
 
-    fn break_fits(&self, size: Size) -> bool {
+    fn next_token_sequence_fits(&self, size: Size) -> bool {
         let Size::Fixed(size) = size else {
             return false;
         };
@@ -175,16 +174,16 @@ impl Printer {
             return true;
         }
 
-        // Even if the group is broken, we still try to fit the tokens
-        // on the same line if the break is inconsistent, which is the
-        // whole purpose of "consistent/inconsistent" distinction.
-        top_group.breaks_kind == BreaksKind::Inconsistent && size <= self.line_size_budget
+        // Even if the group is broken, we still try to fit the tokens on the
+        // same line if the break is compact, which is the whole purpose of
+        // "consistent/compact" distinction.
+        top_group.break_style == BreakStyle::Compact && size <= self.line_size_budget
     }
 
-    pub(super) fn break_(&mut self, token: &Break, size: Size) {
-        if self.break_fits(size) {
-            self.pending_spaces += token.blank_space;
-            self.line_size_budget -= token.blank_space;
+    pub(super) fn space(&mut self, token: &Space, next_space_distance: Size) {
+        if self.next_token_sequence_fits(next_space_distance) {
+            self.pending_spaces += token.size;
+            self.line_size_budget = self.line_size_budget.saturating_sub(token.size);
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -200,18 +199,20 @@ impl Printer {
         self.output.push('\n');
 
         let indent = self.add_indent(token.indent_diff);
-
         self.pending_spaces = indent;
-        self.line_size_budget = self.config.line_size - indent;
+
+        self.line_size_budget = std::cmp::max(
+            self.config.max_line_size.saturating_sub(indent),
+            self.config.no_break_size,
+        );
     }
 
-    pub(super) fn literal(&mut self, text: &str) {
+    pub(super) fn raw(&mut self, text: &str) {
         self.print_pending_spaces();
         self.output.push_str(text);
-
-        // TODO: use unicode-width here
-        // self.size_budget -= text.chars().count() as isize;
-        self.line_size_budget -= text.width();
+        self.line_size_budget = self
+            .line_size_budget
+            .saturating_sub((self.config.visual_size)(text));
     }
 
     fn print_pending_spaces(&mut self) {

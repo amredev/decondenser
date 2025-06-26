@@ -1,44 +1,25 @@
-use std::borrow::Cow;
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-
-/// A borrowed or an owned string.
-pub struct Str<'a> {
-    inner: Cow<'a, str>,
+/// Sealed trait used to specify "string-like" values that can be converted into
+/// a [`String`].
+#[expect(
+    unnameable_types,
+    reason = "
+        Intentionally sealed for future-proofing the API. We may consider using
+        a small-string optimized type in the future since most of the string
+        configs in this crate are very short.
+    "
+)]
+pub trait IntoString {
+    fn into_string(self) -> String;
 }
 
-impl Debug for Str<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(self.inner.as_ref(), f)
+impl IntoString for String {
+    fn into_string(self) -> String {
+        self
     }
 }
 
-impl<'a> Str<'a> {
-    #[must_use]
-    pub fn owned(owned: String) -> Self {
-        Str {
-            inner: Cow::Owned(owned),
-        }
-    }
-
-    #[must_use]
-    pub const fn borrowed(borrowed: &'a str) -> Self {
-        Str {
-            inner: Cow::Borrowed(borrowed),
-        }
-    }
-}
-
-impl AsRef<str> for Str<'_> {
-    fn as_ref(&self) -> &str {
-        self.inner.as_ref()
-    }
-}
-
-impl Deref for Str<'_> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.deref()
+impl IntoString for &str {
+    fn into_string(self) -> String {
+        self.to_owned()
     }
 }

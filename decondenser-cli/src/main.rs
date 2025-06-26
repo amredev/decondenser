@@ -2,6 +2,8 @@
 
 use anyhow::Context;
 use clap::Parser;
+use clap::builder::Styles;
+use clap::builder::styling::{AnsiColor, Effects};
 use std::io::Read;
 use std::process::ExitCode;
 
@@ -31,12 +33,12 @@ fn try_main() -> Result {
             .with_context(|| format!("Failed to read file '{}'", cli.input))?
     };
 
-    let mut decondenser = decondenser::Decondenser::generic();
-    decondenser.line_size = cli.line_size;
-    decondenser.debug_indent = cli.debug_indent;
-    decondenser.debug_layout = cli.debug_layout;
-
-    let output = decondenser.decondense(&input);
+    let output = decondenser::Decondenser::generic()
+        .max_line_size(cli.max_line_size)
+        .no_break_size(cli.no_break_size)
+        .debug_indent(cli.debug_indent)
+        .debug_layout(cli.debug_layout)
+        .decondense(&input);
 
     if cli.debug_line_width {
         let max_width = output
@@ -58,9 +60,25 @@ fn try_main() -> Result {
         .with_context(|| format!("Failed to write to file '{}'", cli.output))
 }
 
-/// Pretty-print any text based on brackets nesting
+// Borrowed from `clap-cargo`:
+// https://github.com/crate-ci/clap-cargo/blob/v0.15.2/src/style.rs#L8-L17
+const CLI_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default())
+    .error(AnsiColor::Red.on_default().effects(Effects::BOLD))
+    .valid(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .invalid(AnsiColor::Yellow.on_default().effects(Effects::BOLD));
+
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "decondenser",
+    about = "Pretty-print any text based on brackets nesting.",
+    long_about = None,
+    version,
+    styles = CLI_STYLES,
+)]
 struct Cli {
     /// Specify a file path or "-" for stdin
     #[clap(long, default_value = "-")]
@@ -70,21 +88,17 @@ struct Cli {
     #[clap(long, default_value = "-")]
     output: String,
 
-    /// Indentation string to use for pretty-printing
+    /// String to use as a single level of indentation nesting.
     #[clap(long, default_value = "    ")]
     indent: String,
 
-    /// Desired size of a line. If the is too big to fit into a single line of
-    /// this size, it'll be broken into several lines. If the content is too
-    /// small so that it doesn't fill the entire line, then several lines can be
-    /// condensed into a single line.
-    ///
-    /// There is no guarantee that the output will not contain lines longer than
-    /// this size. For example, a single long string literal or a long sequence
-    /// of non-whitespace characters may span more than this many characters,
-    /// and decondenser does not currently attempt to break these up.
+    /// Best-effort max size of a line to fit into.
     #[clap(long, default_value_t = 80)]
-    line_size: usize,
+    max_line_size: usize,
+
+    /// Lines shorter than this will never be broken up at any indentation level.
+    #[clap(long, default_value_t = 40)]
+    no_break_size: usize,
 
     /// Only used for debugging by the decondenser developers.
     ///

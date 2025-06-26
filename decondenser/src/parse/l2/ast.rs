@@ -1,9 +1,10 @@
+use crate::config;
 use std::fmt;
 
 pub(crate) enum AstNode<'a> {
     Space(&'a str),
     Raw(&'a str),
-    Punct(&'a str),
+    Punct(&'a config::Punct),
     Group(Group<'a>),
     Quoted(Quoted<'a>),
 }
@@ -11,29 +12,33 @@ pub(crate) enum AstNode<'a> {
 impl fmt::Debug for AstNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AstNode::Space(text) => write!(f, "space {text:?}"),
-            AstNode::Raw(text) => write!(f, "raw {text:?}"),
-            AstNode::Punct(text) => write!(f, "punct {text:?}"),
-            AstNode::Group(group) => write!(f, "group {group:?}"),
-            AstNode::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
+            Self::Space(text) => write!(f, "space {text:?}"),
+            Self::Raw(text) => write!(f, "raw {text:?}"),
+            Self::Punct(punct) => write!(f, "punct {:?}", punct.content),
+            Self::Group(group) => write!(f, "group {group:?}"),
+            Self::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
         }
     }
 }
 
 pub(crate) struct Quoted<'a> {
-    pub(crate) opening: &'a str,
     pub(crate) content: Vec<QuotedContent<'a>>,
-    pub(crate) closing: Option<&'a str>,
+    pub(crate) closed: bool,
+    pub(crate) config: &'a config::Quote,
 }
 
 impl fmt::Debug for Quoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let closing = if self.closed {
+            &self.config.closing
+        } else {
+            "{none}"
+        };
+
         write!(
             f,
-            "{:?} -> {:?} {:?}",
-            self.opening,
-            self.closing.unwrap_or("{none}"),
-            self.content
+            "{:?} -> {closing:?} {:?}",
+            self.config.opening, self.content
         )
     }
 }
@@ -46,8 +51,8 @@ pub(crate) enum QuotedContent<'a> {
 impl fmt::Debug for QuotedContent<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            QuotedContent::Raw(text) => write!(f, "qr:{text:?}"),
-            QuotedContent::Escape(text) => write!(f, "qe:{text:?}"),
+            Self::Raw(text) => write!(f, "qr:{text:?}"),
+            Self::Escape(text) => write!(f, "qe:{text:?}"),
         }
     }
 }
@@ -55,26 +60,29 @@ impl fmt::Debug for QuotedContent<'_> {
 impl<'a> QuotedContent<'a> {
     pub(crate) fn text(&self) -> &'a str {
         match self {
-            QuotedContent::Raw(text) => text,
-            QuotedContent::Escape(text) => text,
+            Self::Raw(text) | Self::Escape(text) => text,
         }
     }
 }
 
 pub(crate) struct Group<'a> {
-    pub(crate) opening: &'a str,
     pub(crate) content: Vec<AstNode<'a>>,
-    pub(crate) closing: Option<&'a str>,
+    pub(crate) closed: bool,
+    pub(crate) config: &'a config::Group,
 }
 
 impl fmt::Debug for Group<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let closing = if self.closed {
+            &self.config.closing.content
+        } else {
+            "{none}"
+        };
+
         write!(
             f,
-            "{:?} -> {:?} {:#?}",
-            self.opening,
-            self.closing.unwrap_or("{none}"),
-            self.content
+            "{:?} -> {closing:?} {:#?}",
+            self.config.opening, self.content
         )
     }
 }
