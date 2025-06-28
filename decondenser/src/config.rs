@@ -9,10 +9,10 @@ use crate::str::{IntoStr, Str};
 #[derive(Debug, Clone)]
 pub struct Group {
     /// The sequence that opens the group.
-    pub(crate) opening: GroupDelim,
+    pub(crate) opening: Punct,
 
     /// The sequence that closes the group.
-    pub(crate) closing: GroupDelim,
+    pub(crate) closing: Punct,
 
     pub(crate) break_style: BreakStyle,
 }
@@ -20,7 +20,7 @@ pub struct Group {
 impl Group {
     /// Creates a new [`Group`] with the given opening and closing delimiters.
     #[must_use]
-    pub fn new(opening: GroupDelim, closing: GroupDelim) -> Self {
+    pub fn new(opening: Punct, closing: Punct) -> Self {
         Self {
             opening,
             closing,
@@ -34,52 +34,6 @@ impl Group {
     #[must_use]
     pub fn break_style(mut self) -> Self {
         self.break_style = BreakStyle::Consistent;
-        self
-    }
-}
-
-/// Describes the delimiters of a group that can be used to nest content.
-#[derive(Debug, Clone)]
-pub struct GroupDelim {
-    pub(crate) leading_space: Space,
-    pub(crate) content: Str,
-    pub(crate) trailing_space: Space,
-}
-
-impl GroupDelim {
-    /// Creates a new [`GroupDelim`] with the given leading, content and
-    /// trailing spaces.
-    #[must_use]
-    pub fn new(content: impl IntoStr) -> Self {
-        Self {
-            leading_space: 0.into(),
-            content: Str::new(content),
-            trailing_space: 0.into(),
-        }
-    }
-
-    /// Defines both the leading and trailing space that will be added to the
-    /// content of the group.
-    #[must_use]
-    pub fn surrounding_space(mut self, value: impl Into<Space>) -> Self {
-        self.leading_space = value.into();
-        self.trailing_space = self.leading_space.clone();
-        self
-    }
-
-    /// Defines the leading space that will be added before the content of the
-    /// group.
-    #[must_use]
-    pub fn leading_space(mut self, value: impl Into<Space>) -> Self {
-        self.leading_space = value.into();
-        self
-    }
-
-    /// Defines the trailing space that will be added after the content of the
-    /// group.
-    #[must_use]
-    pub fn trailing_space(mut self, value: impl Into<Space>) -> Self {
-        self.trailing_space = value.into();
         self
     }
 }

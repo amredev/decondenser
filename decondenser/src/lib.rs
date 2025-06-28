@@ -67,28 +67,28 @@ impl Decondenser {
         Self::empty()
             .groups([
                 Group::new(
-                    GroupDelim::new("(").trailing_space(breakable(0)),
-                    GroupDelim::new(")").leading_space(breakable(0)),
+                    Punct::new("(").trailing_space(breakable(0)),
+                    Punct::new(")").leading_space(breakable(0)),
                 ),
                 Group::new(
-                    GroupDelim::new("[").trailing_space(breakable(0)),
-                    GroupDelim::new("]").leading_space(breakable(0)),
+                    Punct::new("[").trailing_space(breakable(0)),
+                    Punct::new("]").leading_space(breakable(0)),
                 ),
                 Group::new(
-                    GroupDelim::new("{")
+                    Punct::new("{")
                         .leading_space(1)
                         .trailing_space(breakable(1)),
-                    GroupDelim::new("}").leading_space(breakable(1)),
+                    Punct::new("}").leading_space(breakable(1)),
                 ),
                 // Elixir bitstrings
                 Group::new(
-                    GroupDelim::new("<<").trailing_space(breakable(0)),
-                    GroupDelim::new(">>").leading_space(breakable(0)),
+                    Punct::new("<<").trailing_space(breakable(0)),
+                    Punct::new(">>").leading_space(breakable(0)),
                 ),
                 // Many languages use these for generic types/functions
                 Group::new(
-                    GroupDelim::new("<").trailing_space(breakable(0)),
-                    GroupDelim::new(">").leading_space(breakable(0)),
+                    Punct::new("<").trailing_space(breakable(0)),
+                    Punct::new(">").leading_space(breakable(0)),
                 ),
             ])
             .quotes([
