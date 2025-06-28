@@ -15,9 +15,6 @@ use self::str::Str;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
-///
-/// Use [`Decondenser::generic()`] as a preset of reasonable defaults for
-/// general-purpose formatting of arbitrary text based on brackets nesting.
 #[derive(Debug, Clone)]
 pub struct Decondenser {
     indent: Str,
@@ -32,18 +29,16 @@ pub struct Decondenser {
 }
 
 impl Decondenser {
-    /// Returns an "noop" [`Decondenser`] instance that can be used as a blank
-    /// slate to extend from for building custom configurations. It has no
-    /// groups, quotes, or punctuations defined, and uses [`usize::MAX`] for
-    /// its [`max_line_size`].
-    ///
-    /// [`max_line_size`]: Decondenser::max_line_size()
+    /// Creates an empty [`Decondenser`] instance without any groups, quotes, or
+    /// punctuation sequences configured. It is only useful as a base for custom
+    /// configurations. Use [`Decondenser::generic()`] to get a general-purpose
+    /// [`Decondenser`] configured for free-form text formatting.
     #[must_use]
-    pub fn noop() -> Self {
+    pub fn empty() -> Self {
         Self {
-            indent: Str::new(""),
-            max_line_size: usize::MAX,
-            no_break_size: 0,
+            indent: Str::new("    "),
+            max_line_size: 80,
+            no_break_size: 40,
             groups: vec![],
             quotes: vec![],
             puncts: vec![],
@@ -69,10 +64,7 @@ impl Decondenser {
     pub fn generic() -> Self {
         let breakable = |size| Space::new(size).breakable(true);
 
-        Self::noop()
-            .max_line_size(80)
-            .no_break_size(40)
-            .indent("    ")
+        Self::empty()
             .groups([
                 Group::new(
                     GroupDelim::new("(").trailing_space(breakable(0)),
@@ -137,7 +129,9 @@ impl Decondenser {
         self.decondense_impl(input)
     }
 
-    /// String to used to make a single level of indentation
+    /// String to used to make a single level of indentation.
+    ///
+    /// Defaults to 4 spaces.
     #[must_use]
     pub fn indent(mut self, value: impl IntoStr) -> Self {
         self.indent = Str::new(value);

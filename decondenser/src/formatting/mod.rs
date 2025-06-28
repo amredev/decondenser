@@ -24,9 +24,7 @@ impl crate::Decondenser {
         let mut nodes = nodes.iter();
 
         // Skip leading space if it exists
-        if let Some(AstNode::Space(_)) = nodes.clone().next() {
-            nodes.next();
-        }
+        Self::skip_space(&mut nodes);
 
         while let Some(node) = nodes.next() {
             match node {
@@ -50,14 +48,9 @@ impl crate::Decondenser {
                 }
                 &AstNode::Punct(punct) => {
                     self.space(fmt, &punct.leading_space);
-
                     fmt.raw(self.measured_str(&punct.content));
 
-                    let next = nodes.clone().next();
-
-                    if let Some(AstNode::Space(_)) = next {
-                        nodes.next();
-                    }
+                    Self::skip_space(&mut nodes);
 
                     if nodes.clone().next().is_none() {
                         return;
@@ -69,6 +62,7 @@ impl crate::Decondenser {
                     let config = &group.config;
 
                     fmt.begin(BreakStyle::Consistent);
+
                     self.space(fmt, &config.opening.leading_space);
                     fmt.raw(self.measured_str(&config.opening.content));
                     self.space(fmt, &config.opening.trailing_space);
@@ -83,15 +77,11 @@ impl crate::Decondenser {
                         }
                         fmt.raw(self.measured_str(&config.closing.content));
                         self.space(fmt, &config.closing.trailing_space);
+
+                        Self::skip_space(&mut nodes);
                     }
 
                     fmt.end();
-
-                    if group.closed {
-                        if let Some(AstNode::Space(_)) = nodes.clone().next() {
-                            nodes.next();
-                        }
-                    }
                 }
                 AstNode::Quoted(quoted) => {
                     fmt.raw(self.measured_str(&quoted.config.opening));
@@ -105,6 +95,15 @@ impl crate::Decondenser {
                     }
                 }
             }
+        }
+    }
+
+    fn skip_space<'item, 'input>(iter: &mut (impl Iterator<Item = &'item AstNode<'input>> + Clone))
+    where
+        'input: 'item,
+    {
+        if let Some(AstNode::Space(_)) = iter.clone().next() {
+            iter.next();
         }
     }
 
