@@ -12,11 +12,13 @@
 //! Also, this blog post by @mcyoung is a great resource for understanding:
 //! <https://mcyoung.xyz/2025/03/11/formatters/>
 
+mod measured_str;
 mod printer;
 mod sliding_deque;
 mod token;
 
 pub(crate) use crate::BreakStyle;
+pub(super) use measured_str::MeasuredStr;
 
 use self::printer::Printer;
 use self::sliding_deque::SlidingDeque;
@@ -27,8 +29,21 @@ use std::collections::VecDeque;
 use std::fmt;
 use token::{Measurement, Raw, Size};
 
+/// A primitive generic formatter that works in terms of a generic [`Token`]
+/// that has groups, breaks, and raw text. It ingests the [`Token`]s in time
+/// that is linear to their number and using the space that is linear to the
+/// maximum size of the line. Technically it doesn't need to buffer the entire
+/// output string, but it does so just in the sake of simplicity.
+///
+/// There are are two component parts to the formatter:
+/// - Calculating the single-line size of the tokens
+/// - Printing the measured tokens to the output using their size to decide
+///   where to place line breaks.
+///
+/// The measurement logic lives in this file and it drives the printing logic
+/// that is implemented in the [`Printer`] type.
 #[derive(Debug)]
-pub(crate) struct Layout<'a> {
+pub(crate) struct Formatter<'a> {
     /// A "sliding" deque of tokens and sizes that are candidates for the next
     /// line. See the [`SlidingDeque`] docs for more details on how this differs
     /// from a regular [`VecDeque`].
@@ -50,18 +65,12 @@ pub(crate) struct Layout<'a> {
     /// The size is calculated as if the tokens were printed on a single line.
     total_single_line_size: usize,
 
-    printer: Printer,
+    printer: Printer<'a>,
 }
 
-#[derive(Default, Clone, Copy)]
-pub(crate) struct SpaceParams {
-    pub(crate) indent_diff: isize,
-    pub(crate) size: usize,
-}
-
-impl<'a> Layout<'a> {
-    pub(crate) fn new(config: &Decondenser) -> Self {
-        Layout {
+impl<'a> Formatter<'a> {
+    pub(crate) fn new(config: &'a Decondenser) -> Self {
+        Formatter {
             tokens: SlidingDeque::new(),
             printed_single_line_size: 0,
             total_single_line_size: 0,
@@ -75,7 +84,7 @@ impl<'a> Layout<'a> {
             self.measure_tokens();
             self.print_measured_tokens();
         }
-        self.printer.output
+        self.printer.eof()
     }
 
     fn push_unmeasured(&mut self, token: Token<'a>) {
@@ -83,14 +92,17 @@ impl<'a> Layout<'a> {
         self.unmeasured_indices.push_back(index);
     }
 
-    pub(crate) fn begin(&mut self, offset: isize, break_style: BreakStyle) {
+    pub(crate) fn begin(&mut self, break_style: BreakStyle) {
         self.push_unmeasured(Token::Begin(Begin {
             next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
-            indent_diff: offset,
             break_style,
         }));
+    }
+
+    pub(crate) fn indent(&mut self, diff: isize) {
+        self.tokens.push_back(Token::Indent(diff));
     }
 
     pub(crate) fn end(&mut self) {
@@ -103,13 +115,13 @@ impl<'a> Layout<'a> {
 
         // Special case for a `Begin Space End` sequence. In this case, we just
         // can just remove it entirely, since the group is empty.
-        if let Some(&Token::Space(Space { size, .. })) = tokens.next_back() {
+        if let Some(&Token::Space(Space { content, .. })) = tokens.next_back() {
             if let Some(Token::Begin(_)) = tokens.next_back() {
                 self.tokens.pop_back();
                 self.tokens.pop_back();
                 self.unmeasured_indices.pop_back();
                 self.unmeasured_indices.pop_back();
-                self.total_single_line_size -= size;
+                self.total_single_line_size -= content.visual_size();
                 return;
             }
         }
@@ -117,28 +129,30 @@ impl<'a> Layout<'a> {
         self.push_unmeasured(Token::End);
     }
 
-    pub(crate) fn space(&mut self, params: SpaceParams) {
+    pub(crate) fn space(&mut self, content: MeasuredStr<'a>) {
         self.measure_tokens();
         self.push_unmeasured(Token::Space(Space {
-            indent_diff: params.indent_diff,
-            size: params.size,
+            content,
             next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
         }));
-        self.total_single_line_size = self.total_single_line_size.saturating_add(params.size);
+        self.total_single_line_size = self
+            .total_single_line_size
+            .saturating_add(content.visual_size());
     }
 
-    pub(crate) fn raw(&mut self, text: &'a str) {
+    pub(crate) fn raw(&mut self, content: MeasuredStr<'a>) {
         if self.unmeasured_indices.is_empty() {
-            self.printer.raw(text);
+            self.printer.raw(content);
             return;
         }
 
-        let size = text.len();
-        self.tokens.push_back(Token::Raw(Raw { size, text }));
+        self.tokens.push_back(Token::Raw(Raw { content }));
+        self.total_single_line_size = self
+            .total_single_line_size
+            .saturating_add(content.visual_size());
 
-        self.total_single_line_size = self.total_single_line_size.saturating_add(size);
         self.break_if_overflow();
     }
 
@@ -181,18 +195,20 @@ impl<'a> Layout<'a> {
         while let Some(token) = self.tokens.front() {
             match token {
                 Token::Raw(raw) => {
-                    self.printed_single_line_size =
-                        self.printed_single_line_size.saturating_add(raw.size);
+                    self.printed_single_line_size = self
+                        .printed_single_line_size
+                        .saturating_add(raw.content.visual_size());
 
-                    self.printer.raw(raw.text);
+                    self.printer.raw(raw.content);
                 }
                 Token::Space(space) => {
                     let Measurement::Measured(distance) = space.next_space_distance else {
                         return;
                     };
 
-                    self.printed_single_line_size =
-                        self.printed_single_line_size.saturating_add(space.size);
+                    self.printed_single_line_size = self
+                        .printed_single_line_size
+                        .saturating_add(space.content.visual_size());
 
                     self.printer.space(space, distance);
                 }
@@ -201,6 +217,9 @@ impl<'a> Layout<'a> {
                         return;
                     };
                     self.printer.begin(begin, distance);
+                }
+                Token::Indent(diff) => {
+                    self.printer.indent(*diff);
                 }
                 Token::End { .. } => {
                     if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {
@@ -255,8 +274,11 @@ impl<'a> Layout<'a> {
                         return;
                     }
                 }
-                Token::Raw(_) => {
-                    debug_panic!("Raw tokens should never be part of unmeasured token indices");
+                Token::Raw(_) | Token::Indent(_) => {
+                    debug_panic!(
+                        "This token should never have been part of unmeasured \
+                        token indices: {token:?}"
+                    );
                 }
             }
         }

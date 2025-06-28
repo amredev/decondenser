@@ -1,4 +1,5 @@
 use super::Size;
+use super::measured_str::MeasuredStr;
 use super::token::{Begin, Space};
 use crate::{BreakStyle, Decondenser};
 
@@ -8,10 +9,7 @@ enum LineFit {
     Fits,
 
     /// Group can't fit on a single line, it must be broken into several lines
-    Broken {
-        /// The state of indent before the group was broken.
-        prev_indent: usize,
-    },
+    Broken,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -30,22 +28,24 @@ impl Group {
 }
 
 #[derive(Debug)]
-struct PrinterConfig {
+struct PrinterConfig<'a> {
     max_line_size: usize,
     no_break_size: usize,
     debug_layout: bool,
     debug_indent: bool,
-    visual_size: fn(&str) -> usize,
+
+    /// String used to make a single level of indentation.
+    indent_str: MeasuredStr<'a>,
 }
 
 #[derive(Debug)]
-pub(super) struct Printer {
+pub(super) struct Printer<'a> {
     /// Constant values intentionally separated out of the struct to group them
     /// together for readability. Everything else in this struct is mutable.
-    config: PrinterConfig,
+    config: PrinterConfig<'a>,
 
     /// Output string being built
-    pub(super) output: String,
+    output: String,
 
     /// Spare budget of size left on the current line.
     ///
@@ -56,36 +56,29 @@ pub(super) struct Printer {
     /// some token, which is not allowed.
     pub(super) line_size_budget: usize,
 
-    /// Number of spaces for indenting the current line
-    indent: usize,
+    /// Level of indentation for the current line
+    indent_level: usize,
 
-    /// If we were to eagerly push space in [`Self::print_break()`], we could
-    /// leave unnecessary trailing spaces if the output just cuts off after the
-    /// last break.
-    ///
-    /// So, instead of pushing the space immediately, we just increase this
-    /// counter so that next time a non-space token is printed it is prefixed
-    /// with the pending amount spaces.
-    pending_spaces: usize,
+    pending_indent: bool,
 
     /// Stack of groups-in-progress nested one inside another
     groups_stack: Vec<Group>,
 }
 
-impl Printer {
-    pub(super) fn new(config: &Decondenser) -> Self {
+impl<'a> Printer<'a> {
+    pub(super) fn new(config: &'a Decondenser) -> Self {
         Self {
             config: PrinterConfig {
                 max_line_size: config.max_line_size,
                 no_break_size: config.no_break_size,
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
-                visual_size: config.visual_size,
+                indent_str: MeasuredStr::new(&config.indent, config.visual_size),
             },
             output: String::new(),
             line_size_budget: std::cmp::max(config.max_line_size, config.no_break_size),
-            indent: 0,
-            pending_spaces: 0,
+            indent_level: 0,
+            pending_indent: false,
             groups_stack: Vec::new(),
         }
     }
@@ -98,8 +91,32 @@ impl Printer {
             });
         }
 
+        if matches!(next_space_distance, Size::Fixed(size) if size <= self.line_size_budget) {
+            let group = Group::new(LineFit::Fits, token.break_style);
+            self.groups_stack.push(group);
+            return;
+        }
+
+        let line_fit = LineFit::Broken;
+
+        self.groups_stack
+            .push(Group::new(line_fit, token.break_style));
+    }
+
+    pub(super) fn end(&mut self) {
+        let top_group = self.groups_stack.pop().unwrap();
+
+        if self.config.debug_layout {
+            self.output.push(match top_group.break_style {
+                BreakStyle::Consistent => '»',
+                BreakStyle::Compact => '›',
+            });
+        }
+    }
+
+    pub(super) fn indent(&mut self, diff: isize) {
         if self.config.debug_indent {
-            let offset = token.indent_diff.to_string();
+            let offset = diff.to_string();
             let chars = offset.chars().map(|ch| match ch {
                 '0' => '₀',
                 '1' => '₁',
@@ -118,47 +135,17 @@ impl Printer {
             self.output.extend(chars);
         }
 
-        if matches!(next_space_distance, Size::Fixed(size) if size <= self.line_size_budget) {
-            let group = Group::new(LineFit::Fits, token.break_style);
-            self.groups_stack.push(group);
-            return;
-        }
-
-        let line_fit = LineFit::Broken {
-            prev_indent: self.indent,
-        };
-
-        self.groups_stack
-            .push(Group::new(line_fit, token.break_style));
-
-        self.indent = self.add_indent(token.indent_diff);
-    }
-
-    pub(super) fn end(&mut self) {
-        let top_group = self.groups_stack.pop().unwrap();
-
-        if let LineFit::Broken { prev_indent } = top_group.line_fit {
-            self.indent = prev_indent;
-        }
-
-        if self.config.debug_layout {
-            self.output.push(match top_group.break_style {
-                BreakStyle::Consistent => '»',
-                BreakStyle::Compact => '›',
+        self.indent_level = self
+            .indent_level
+            .checked_add_signed(diff)
+            .unwrap_or_else(|| {
+                debug_assert!(
+                    false,
+                    "Indent overflow: indent_diff: {diff}, self.indent_level: {}",
+                    self.indent_level
+                );
+                self.indent_level.saturating_add_signed(diff)
             });
-        }
-    }
-
-    #[must_use]
-    fn add_indent(&self, diff: isize) -> usize {
-        self.indent.checked_add_signed(diff).unwrap_or_else(|| {
-            debug_assert!(
-                false,
-                "Indent overflow: indent_diff: {diff}, self.indent: {}",
-                self.indent
-            );
-            self.indent.saturating_add_signed(diff)
-        })
     }
 
     fn next_token_sequence_fits(&self, size: Size) -> bool {
@@ -180,10 +167,12 @@ impl Printer {
         top_group.break_style == BreakStyle::Compact && size <= self.line_size_budget
     }
 
-    pub(super) fn space(&mut self, token: &Space, next_space_distance: Size) {
+    pub(super) fn space(&mut self, token: &Space<'_>, next_space_distance: Size) {
         if self.next_token_sequence_fits(next_space_distance) {
-            self.pending_spaces += token.size;
-            self.line_size_budget = self.line_size_budget.saturating_sub(token.size);
+            self.output.push_str(&token.content);
+            self.line_size_budget = self
+                .line_size_budget
+                .saturating_sub(token.content.visual_size());
 
             if self.config.debug_layout {
                 self.output.push('·');
@@ -196,28 +185,37 @@ impl Printer {
             self.output.push('·');
         }
 
-        self.output.push('\n');
+        self.pending_indent = true;
+    }
 
-        let indent = self.add_indent(token.indent_diff);
-        self.pending_spaces = indent;
+    fn print_pending_indent(&mut self) {
+        if !self.pending_indent {
+            return;
+        }
+
+        self.pending_indent = false;
+
+        self.output.push('\n');
+        self.output.extend(std::iter::repeat_n(
+            self.config.indent_str.as_str(),
+            self.indent_level,
+        ));
+
+        let indent_size = self.indent_level * self.config.indent_str.visual_size();
 
         self.line_size_budget = std::cmp::max(
-            self.config.max_line_size.saturating_sub(indent),
+            self.config.max_line_size.saturating_sub(indent_size),
             self.config.no_break_size,
         );
     }
 
-    pub(super) fn raw(&mut self, text: &str) {
-        self.print_pending_spaces();
-        self.output.push_str(text);
-        self.line_size_budget = self
-            .line_size_budget
-            .saturating_sub((self.config.visual_size)(text));
+    pub(super) fn raw(&mut self, str: MeasuredStr<'_>) {
+        self.print_pending_indent();
+        self.line_size_budget = self.line_size_budget.saturating_sub(str.visual_size());
+        self.output.push_str(&str);
     }
 
-    fn print_pending_spaces(&mut self) {
-        let spaces = std::iter::repeat_n(' ', self.pending_spaces);
-        self.output.extend(spaces);
-        self.pending_spaces = 0;
+    pub(super) fn eof(self) -> String {
+        self.output
     }
 }

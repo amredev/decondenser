@@ -2,16 +2,16 @@
 
 mod ansi;
 mod config;
-mod layout;
-mod parse;
-mod print;
+mod formatting;
+mod parsing;
 mod str;
 mod unescape;
 mod utils;
 
 pub use self::config::*;
+pub use str::IntoStr;
 
-use str::IntoString;
+use self::str::Str;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
@@ -20,18 +20,39 @@ use str::IntoString;
 /// general-purpose formatting of arbitrary text based on brackets nesting.
 #[derive(Debug, Clone)]
 pub struct Decondenser {
-    pub(crate) indent: String,
-    pub(crate) max_line_size: usize,
-    pub(crate) no_break_size: usize,
-    pub(crate) groups: Vec<Group>,
-    pub(crate) quotes: Vec<Quote>,
-    pub(crate) puncts: Vec<Punct>,
-    pub(crate) visual_size: fn(&str) -> usize,
-    pub(crate) debug_layout: bool,
-    pub(crate) debug_indent: bool,
+    indent: Str,
+    max_line_size: usize,
+    no_break_size: usize,
+    groups: Vec<Group>,
+    quotes: Vec<Quote>,
+    puncts: Vec<Punct>,
+    visual_size: fn(&str) -> usize,
+    debug_layout: bool,
+    debug_indent: bool,
 }
 
 impl Decondenser {
+    /// Returns an "noop" [`Decondenser`] instance that can be used as a blank
+    /// slate to extend from for building custom configurations. It has no
+    /// groups, quotes, or punctuations defined, and uses [`usize::MAX`] for
+    /// its [`max_line_size`].
+    ///
+    /// [`max_line_size`]: Decondenser::max_line_size()
+    #[must_use]
+    pub fn noop() -> Self {
+        Self {
+            indent: Str::new(""),
+            max_line_size: usize::MAX,
+            no_break_size: 0,
+            groups: vec![],
+            quotes: vec![],
+            puncts: vec![],
+            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+            debug_layout: false,
+            debug_indent: false,
+        }
+    }
+
     /// Create a new [`Decondenser`] instance with the default configuration for
     /// general-purpose formatting of arbitrary text based on brackets nesting.
     ///
@@ -46,26 +67,31 @@ impl Decondenser {
     /// but it can change between minor and major versions.
     #[must_use]
     pub fn generic() -> Self {
-        Self {
-            debug_indent: false,
-            debug_layout: false,
-            max_line_size: 80,
-            no_break_size: 40,
-            indent: "    ".into_string(),
-            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+        let breakable = |size| Space::new(size).breakable(true);
 
-            groups: vec![
-                Group::new(GroupDelim::new("("), GroupDelim::new(")")),
-                Group::new(GroupDelim::new("["), GroupDelim::new("]")),
+        Self::noop()
+            .max_line_size(80)
+            .no_break_size(40)
+            .indent("    ")
+            .groups([
                 Group::new(
-                    GroupDelim::new("{").leading_space(" ").trailing_space(" "),
-                    GroupDelim::new("}").leading_space(" "),
+                    GroupDelim::new("(").trailing_space(breakable(0)),
+                    GroupDelim::new(")").leading_space(breakable(0)),
+                ),
+                Group::new(
+                    GroupDelim::new("[").trailing_space(breakable(0)),
+                    GroupDelim::new("]").leading_space(breakable(0)),
+                ),
+                Group::new(
+                    GroupDelim::new("{")
+                        .leading_space(1)
+                        .trailing_space(breakable(1)),
+                    GroupDelim::new("}").leading_space(breakable(1)),
                 ),
                 Group::new(GroupDelim::new("<"), GroupDelim::new(">")),
-            ],
-
-            quotes: vec![
-                Quote::new("\"", "\"").escapes(vec![
+            ])
+            .quotes([
+                Quote::new("\"", "\"").escapes([
                     Escape::new("\\n", "\n"),
                     Escape::new("\\r", "\r"),
                     Escape::new("\\r", "\r"),
@@ -73,7 +99,7 @@ impl Decondenser {
                     Escape::new("\\\\", "\\"),
                     Escape::new("\\\"", "\""),
                 ]),
-                Quote::new("'", "'").escapes(vec![
+                Quote::new("'", "'").escapes([
                     Escape::new("\\n", "\n"),
                     Escape::new("\\r", "\r"),
                     Escape::new("\\r", "\r"),
@@ -81,32 +107,18 @@ impl Decondenser {
                     Escape::new("\\\\", "\\"),
                     Escape::new("\\'", "'"),
                 ]),
-            ],
-
-            puncts: vec![
-                Punct::new(",").trailing_space(Space::new(" ").break_if_needed(true)),
-                Punct::new(";").trailing_space(Space::new(" ").break_if_needed(true)),
-                Punct::new(":").trailing_space(Space::new(" ")),
-                Punct::new("=>")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-                Punct::new("!==")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-                Punct::new("===")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-                Punct::new("!=")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-                Punct::new("==")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-                Punct::new("=")
-                    .leading_space(Space::new(" "))
-                    .trailing_space(Space::new(" ")),
-            ],
-        }
+            ])
+            .puncts([
+                Punct::new(",").trailing_space(breakable(1)),
+                Punct::new(";").trailing_space(breakable(1)),
+                Punct::new(":").trailing_space(1),
+                Punct::new("=>").surrounding_space(1),
+                Punct::new("!==").surrounding_space(1),
+                Punct::new("===").surrounding_space(1),
+                Punct::new("!=").surrounding_space(1),
+                Punct::new("==").surrounding_space(1),
+                Punct::new("=").surrounding_space(1),
+            ])
     }
 
     /// Pretty-print any text based on brackets nesting.
@@ -122,30 +134,21 @@ impl Decondenser {
     /// and decondenser does not currently attempt to break these up.
     #[must_use]
     pub fn decondense(&self, input: &str) -> String {
-        let ast = parse::l2::parse(&parse::l1::ParseParams {
-            input,
-            config: self,
-        });
-
-        let mut layout = layout::Layout::new(self);
-
-        layout.begin(0, BreakStyle::Consistent);
-        self.print(&mut layout, &ast);
-        layout.end();
-
-        layout.eof()
+        self.decondense_impl(input)
     }
 
-    /// String to use as a single level of indentation nesting.
+    /// String to used to make a single level of indentation
     #[must_use]
-    pub fn indent(mut self, value: impl IntoString) -> Self {
-        self.indent = value.into_string();
+    pub fn indent(mut self, value: impl IntoStr) -> Self {
+        self.indent = Str::new(value);
         self
     }
 
     /// Best-effort max size of a line to fit into.
     ///
-    /// See how size is calculated in the docs for [`Self::visual_size()`].
+    /// See how size is calculated in the docs for [`visual_size`].
+    ///
+    /// [`visual_size`]: Decondenser::visual_size()
     #[must_use]
     pub fn max_line_size(mut self, value: usize) -> Self {
         self.max_line_size = value;
@@ -220,4 +223,12 @@ impl Decondenser {
         self.debug_indent = value;
         self
     }
+}
+
+mod sealed {
+    /// A sealed struct to future-proof the trait method signatures and prevent
+    /// users from implementing the traits of this crate. See the guide:
+    /// <https://predr.ag/blog/definitive-guide-to-sealed-traits-in-rust/>
+    #[expect(unnameable_types, missing_debug_implementations)]
+    pub struct Sealed;
 }

@@ -1,12 +1,24 @@
+use super::measured_str::MeasuredStr;
 use crate::BreakStyle;
 use crate::ansi::{BLACK, BLUE, BOLD, GREEN, NO_BOLD, RESET, WHITE, YELLOW};
 use crate::utils::{debug_panic, scope_path};
 use std::fmt;
 
 pub(super) enum Token<'a> {
+    /// Starts a nested group
     Begin(Begin),
+
+    /// Raw text that should be printed as-is.
     Raw(Raw<'a>),
-    Space(Space),
+
+    /// A space can be turned into a line break if the line gets too long.
+    Space(Space<'a>),
+
+    /// Change the indent of the following content by the given number of
+    /// levels. Applied only if the group is broken into multiple lines.
+    Indent(isize),
+
+    /// Closes a nested group
     End,
 }
 
@@ -14,32 +26,21 @@ pub(super) struct Begin {
     /// Calculated as the distance to the next [`Token::Space`] that follows
     /// the paired [`Token::End`] on the same level of nesting or EOF.
     pub(super) next_space_distance: Measurement,
-
-    /// Summed with the indent before the group to calculate the indent for the
-    /// content of the group.
-    pub(super) indent_diff: isize,
-
     pub(super) break_style: BreakStyle,
 }
 
 pub(super) struct Raw<'a> {
-    pub(super) size: usize,
-
-    pub(super) text: &'a str,
+    pub(super) content: MeasuredStr<'a>,
 }
 
-pub(super) struct Space {
+pub(super) struct Space<'a> {
     /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
     /// all tokens until the next [`Token::Space`] on the same level of nesting
     /// or EOF.
     pub(super) next_space_distance: Measurement,
 
-    /// Summed with the indent before the break to calculate the indent for the
-    /// following content.
-    pub(super) indent_diff: isize,
-
-    /// Number of spaces to insert if this space isn't turned into a line break.
-    pub(super) size: usize,
+    /// The content of the space if it isn't turned into a line break.
+    pub(super) content: MeasuredStr<'a>,
 }
 
 #[derive(Clone, Copy)]
@@ -110,27 +111,27 @@ impl fmt::Debug for Size {
 
 impl fmt::Debug for Raw<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { size, text } = self;
+        let Self { content } = self;
 
-        write!(f, "{:?}{WHITE}{text:?}{RESET}", Size::Fixed(*size))
+        write!(
+            f,
+            "{:?}{WHITE}{content:?}{RESET}",
+            Size::Fixed(content.visual_size())
+        )
     }
 }
 
-impl fmt::Debug for Space {
+impl fmt::Debug for Space<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
-            next_space_distance: size,
-            indent_diff,
-            size: blank_space,
+            next_space_distance,
+            content,
         } = self;
 
-        write!(f, "{size:?}{GREEN}{BOLD}Break{NO_BOLD} {blank_space}")?;
-
-        if *indent_diff != 0 {
-            write!(f, ", indent_diff: {indent_diff}")?;
-        }
-
-        write!(f, "{RESET}")
+        write!(
+            f,
+            "{next_space_distance:?}{GREEN}{BOLD}Break{NO_BOLD} {content:?}{RESET}"
+        )
     }
 }
 
@@ -138,17 +139,13 @@ impl fmt::Debug for Begin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             next_space_distance: size,
-            indent_diff,
             break_style,
         } = self;
 
-        write!(f, "{size:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}")?;
-
-        if *indent_diff != 0 {
-            write!(f, ", indent_diff: {indent_diff}")?;
-        }
-
-        write!(f, "{RESET}")
+        write!(
+            f,
+            "{size:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}{RESET}"
+        )
     }
 }
 
@@ -158,6 +155,7 @@ impl fmt::Debug for Token<'_> {
             Self::Raw(token) => write!(f, "{token:?}"),
             Self::Space(token) => write!(f, "{token:?}"),
             Self::Begin(token) => write!(f, "{token:?}"),
+            Self::Indent(diff) => write!(f, "{BLACK}  - Indent({diff}){RESET}"),
             Self::End => write!(f, "{BLACK}  - {BLUE}End{RESET}"),
         }
     }

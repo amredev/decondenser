@@ -3,14 +3,12 @@ mod ast;
 pub(crate) use ast::*;
 
 use super::l1;
+use crate::Decondenser;
 
-pub(crate) fn parse<'a>(params: &l1::ParseParams<'a>) -> Vec<AstNode<'a>> {
-    let ast = l1::parse(params);
+pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<AstNode<'a>> {
+    let ast = l1::parse(config, input);
 
-    AstFromL1 {
-        input: params.input,
-    }
-    .convert(&ast, params.input.len())
+    AstFromL1 { input }.convert(&ast, input.len())
 }
 
 #[derive(Copy, Clone)]
