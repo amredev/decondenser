@@ -7,15 +7,10 @@ use crate::{Decondenser, config};
 use cursor::Cursor;
 use std::mem;
 
-pub(crate) struct ParseParams<'a> {
-    pub(crate) input: &'a str,
-    pub(crate) config: &'a Decondenser,
-}
-
-pub(crate) fn parse<'a>(params: &ParseParams<'a>) -> Vec<AstNode<'a>> {
+pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<AstNode<'a>> {
     let mut lexer = Parser {
-        config: params.config,
-        cursor: Cursor::new(params.input),
+        config,
+        cursor: Cursor::new(input),
         output: Vec::new(),
     };
     lexer.parse(None);

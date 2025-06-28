@@ -1,5 +1,8 @@
 # 💡 Enable word wrap when editing this file.
 # You can use `> View: Toggle Word Wrap` in VSCode.
+#
+# Run `scripts/update-tests.sh` to update the tests. This will overwrite the
+# `output` values and format the file with `taplo`.
 
 ["simple Rust debug output"]
 input = """
@@ -46,7 +49,6 @@ input = '''
 output = '''
  {
     \n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
-
 '''
 
 ["unterminated group"]
@@ -86,7 +88,8 @@ output = """
 const base64Compile = (
     str
 ) => WebAssembly.compile(
-    typeof Buffer !== "undefined" ? Buffer.from(
+    typeof Buffer !== "undefined"
+            ? Buffer.from(
         str,
         "base64"
     ): Uint8Array.from(atob(str), (b) => b.charCodeAt(0)),

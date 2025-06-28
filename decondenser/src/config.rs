@@ -1,4 +1,5 @@
-use crate::str::IntoString;
+use crate::sealed::Sealed;
+use crate::str::{IntoStr, Str};
 
 /// Describes a grouping of content delimited via opening and closing sequences
 /// (usually some kind of brackets).
@@ -40,35 +41,45 @@ impl Group {
 /// Describes the delimiters of a group that can be used to nest content.
 #[derive(Debug, Clone)]
 pub struct GroupDelim {
-    pub(crate) leading_space: String,
-    pub(crate) content: String,
-    pub(crate) trailing_space: String,
+    pub(crate) leading_space: Space,
+    pub(crate) content: Str,
+    pub(crate) trailing_space: Space,
 }
 
 impl GroupDelim {
     /// Creates a new [`GroupDelim`] with the given leading, content and
     /// trailing spaces.
     #[must_use]
-    pub fn new(content: impl IntoString) -> Self {
+    pub fn new(content: impl IntoStr) -> Self {
         Self {
-            leading_space: String::new(),
-            content: content.into_string(),
-            trailing_space: String::new(),
+            leading_space: 0.into(),
+            content: Str::new(content),
+            trailing_space: 0.into(),
         }
     }
 
-    /// Defines the leading space that will be added before the content of the
+    /// Defines both the leading and trailing space that will be added to the
+    /// content of the group.
     #[must_use]
-    pub fn leading_space(mut self, value: impl IntoString) -> Self {
-        self.leading_space = value.into_string();
+    pub fn surrounding_space(mut self, value: impl Into<Space>) -> Self {
+        self.leading_space = value.into();
+        self.trailing_space = self.leading_space.clone();
+        self
+    }
+
+    /// Defines the leading space that will be added before the content of the
+    /// group.
+    #[must_use]
+    pub fn leading_space(mut self, value: impl Into<Space>) -> Self {
+        self.leading_space = value.into();
         self
     }
 
     /// Defines the trailing space that will be added after the content of the
     /// group.
     #[must_use]
-    pub fn trailing_space(mut self, value: impl IntoString) -> Self {
-        self.trailing_space = value.into_string();
+    pub fn trailing_space(mut self, value: impl Into<Space>) -> Self {
+        self.trailing_space = value.into();
         self
     }
 }
@@ -120,10 +131,10 @@ pub enum BreakStyle {
 #[derive(Debug, Clone)]
 pub struct Quote {
     /// The sequence that opens the quoted content.
-    pub(crate) opening: String,
+    pub(crate) opening: Str,
 
     /// The sequence that closes the quoted content.
-    pub(crate) closing: String,
+    pub(crate) closing: Str,
 
     /// The sequences that are used to escape special characters in the quoted
     /// content.
@@ -133,10 +144,10 @@ pub struct Quote {
 impl Quote {
     /// Creates a new [`Quote`] with the given opening and closing delimiters.
     #[must_use]
-    pub fn new(opening: impl IntoString, closing: impl IntoString) -> Self {
+    pub fn new(opening: impl IntoStr, closing: impl IntoStr) -> Self {
         Self {
-            opening: opening.into_string(),
-            closing: closing.into_string(),
+            opening: Str::new(opening),
+            closing: Str::new(closing),
             escapes: vec![],
         }
     }
@@ -155,20 +166,20 @@ impl Quote {
 /// Describes a single escape sequence inside of a quoted content.
 #[derive(Debug, Clone)]
 pub struct Escape {
-    pub(crate) escaped: String,
+    pub(crate) escaped: Str,
 
     #[expect(dead_code, reason = "TODO: immplement unescaping API")]
-    pub(crate) unescaped: String,
+    pub(crate) unescaped: Str,
 }
 
 impl Escape {
     /// Creates a new [`Escape`] with the given escaped and unescaped
     /// representations.
     #[must_use]
-    pub fn new(escaped: impl IntoString, unescaped: impl IntoString) -> Self {
+    pub fn new(escaped: impl IntoStr, unescaped: impl IntoStr) -> Self {
         Self {
-            escaped: escaped.into_string(),
-            unescaped: unescaped.into_string(),
+            escaped: Str::new(escaped),
+            unescaped: Str::new(unescaped),
         }
     }
 }
@@ -177,7 +188,7 @@ impl Escape {
 /// but it can also be a sequence of characters like `=>`.
 #[derive(Debug, Clone)]
 pub struct Punct {
-    pub(crate) content: String,
+    pub(crate) content: Str,
 
     pub(crate) leading_space: Space,
     pub(crate) trailing_space: Space,
@@ -186,20 +197,30 @@ pub struct Punct {
 impl Punct {
     /// Creates a new [`Punct`] with the given content.
     #[must_use]
-    pub fn new(content: impl IntoString) -> Self {
+    pub fn new(content: impl IntoStr) -> Self {
         Self {
-            content: content.into_string(),
-            leading_space: Space::new(""),
-            trailing_space: Space::new(""),
+            content: Str::new(content),
+            leading_space: Space::empty(),
+            trailing_space: Space::empty(),
         }
+    }
+
+    /// Defines both the leading and trailing space handling for this [`Punct`].
+    ///
+    /// By default no leading or trailing space is added.
+    #[must_use]
+    pub(crate) fn surrounding_space(mut self, value: impl Into<Space>) -> Self {
+        self.leading_space = value.into();
+        self.trailing_space = self.leading_space.clone();
+        self
     }
 
     /// Defines the logic leading space handling for this [`Punct`].
     ///
     /// By default no leading space is added.
     #[must_use]
-    pub fn leading_space(mut self, value: Space) -> Self {
-        self.leading_space = value;
+    pub fn leading_space(mut self, value: impl Into<Space>) -> Self {
+        self.leading_space = value.into();
         self
     }
 
@@ -207,8 +228,8 @@ impl Punct {
     ///
     /// By default no trailing space is added.
     #[must_use]
-    pub fn trailing_space(mut self, value: Space) -> Self {
-        self.trailing_space = value;
+    pub fn trailing_space(mut self, value: impl Into<Space>) -> Self {
+        self.trailing_space = value.into();
         self
     }
 }
@@ -216,18 +237,33 @@ impl Punct {
 /// Defines the rules for inserting spaces and line breaks.
 #[derive(Debug, Clone)]
 pub struct Space {
-    pub(crate) content: String,
-    pub(crate) break_if_needed: bool,
+    pub(crate) content: Str,
+    pub(crate) breakable: bool,
 }
 
 impl Space {
-    /// Creates a new [`Space`] with the given content that will be used when
-    /// the line break is not needed.
+    /// Creates a zero-width [`Space`]. Equivalent to `Space::new(0)`.
     #[must_use]
-    pub fn new(value: impl IntoString) -> Self {
+    pub fn empty() -> Self {
+        Self::new(0)
+    }
+
+    /// Creates a [`Space`] with the given content.
+    ///
+    /// Accepts [`SpaceContent`] that enables using [`usize`] or string-like
+    /// types for defining the content of a [`Space`]. Passing [`usize`] means
+    /// creating a space of the number of whitespace characters equal to the
+    /// value of the number.
+    ///
+    /// Make sure to explicitly enable [`Space::breakable`] if you want the
+    /// space to be considered for turning into a new line when the content does
+    /// not fit on a single line, otherwise the space will always stay static
+    /// and never be turned into a line break.
+    #[must_use]
+    pub fn new(content: impl SpaceContent) -> Self {
         Self {
-            content: value.into_string(),
-            break_if_needed: false,
+            content: content.convert(Sealed),
+            breakable: false,
         }
     }
 
@@ -237,8 +273,36 @@ impl Space {
     ///
     /// Default is `false`.
     #[must_use]
-    pub fn break_if_needed(mut self, value: bool) -> Self {
-        self.break_if_needed = value;
+    pub fn breakable(mut self, value: bool) -> Self {
+        self.breakable = value;
         self
+    }
+}
+
+impl<T: SpaceContent> From<T> for Space {
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+/// A trait to enable using [`usize`] or string-like types for defining the
+/// content of a [`Space`].
+///
+/// Passing [`usize`] means creating a space of the
+/// number of whitespace characters equal to the value of the number.
+pub trait SpaceContent {
+    /// Sealed method. Can't be called outside of this crate.
+    fn convert(self, _: Sealed) -> Str;
+}
+
+impl SpaceContent for usize {
+    fn convert(self, _: Sealed) -> Str {
+        Str::n_spaces(self)
+    }
+}
+
+impl<S: IntoStr> SpaceContent for S {
+    fn convert(self, _: Sealed) -> Str {
+        Str::new(self)
     }
 }
