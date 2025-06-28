@@ -38,6 +38,7 @@ fn try_main() -> Result {
         .no_break_size(cli.no_break_size)
         .debug_indent(cli.debug_indent)
         .debug_layout(cli.debug_layout)
+        .visual_size(unicode_width::UnicodeWidthStr::width)
         .decondense(&input);
 
     if cli.debug_line_width {

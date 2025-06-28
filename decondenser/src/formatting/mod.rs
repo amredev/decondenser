@@ -67,9 +67,18 @@ impl crate::Decondenser {
                     fmt.raw(self.measured_str(&config.opening.content));
                     self.space(fmt, &config.opening.trailing_space);
 
-                    fmt.indent(1);
+                    let indent = config.opening.trailing_space.breakable
+                        || config.closing.leading_space.breakable;
+
+                    if indent {
+                        fmt.indent(1);
+                    }
+
                     self.format_ast(fmt, &group.content);
-                    fmt.indent(-1);
+
+                    if indent {
+                        fmt.indent(-1);
+                    }
 
                     if group.closed {
                         if !group.content.is_empty() {

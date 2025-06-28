@@ -80,7 +80,16 @@ impl Decondenser {
                         .trailing_space(breakable(1)),
                     GroupDelim::new("}").leading_space(breakable(1)),
                 ),
-                Group::new(GroupDelim::new("<"), GroupDelim::new(">")),
+                // Elixir bitstrings
+                Group::new(
+                    GroupDelim::new("<<").trailing_space(breakable(0)),
+                    GroupDelim::new(">>").leading_space(breakable(0)),
+                ),
+                // Many languages use these for generic types/functions
+                Group::new(
+                    GroupDelim::new("<").trailing_space(breakable(0)),
+                    GroupDelim::new(">").leading_space(breakable(0)),
+                ),
             ])
             .quotes([
                 Quote::new("\"", "\"").escapes([
@@ -156,6 +165,28 @@ impl Decondenser {
         self
     }
 
+    /// Function used to calculate the effective "visual" size of a string.
+    ///
+    /// The default algorithm uses [`str::chars()`] to count the number of
+    /// [`char`]s in the string with the exception of `\r` characters.
+    ///
+    /// For more robust size calculation, the crate [`unicode_width`] can be
+    /// used like this:
+    ///
+    /// ```
+    /// # use decondenser::Decondenser;
+    /// # let decondenser = Decondenser::new();
+    /// #
+    /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
+    /// ```
+    ///
+    /// [`unicode_width`]: https://docs.rs/unicode-width
+    #[must_use]
+    pub fn visual_size(mut self, value: fn(&str) -> usize) -> Self {
+        self.visual_size = value;
+        self
+    }
+
     /// Set group characters that are used to nest content.
     #[must_use]
     pub fn groups(mut self, value: impl IntoIterator<Item = Group>) -> Self {
@@ -175,27 +206,6 @@ impl Decondenser {
     #[must_use]
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
-        self
-    }
-
-    /// Function used to calculate the effective "visual" size of a string.
-    ///
-    /// The default algorithm uses [`str::chars()`] to count the number of
-    /// [`char`]s in the string with the exception of `\r` characters.
-    ///
-    /// For more robust size calculation, the crate [`unicode_width`] can be
-    /// used like this:
-    ///
-    /// ```ignore
-    /// use decondenser::Decondenser;
-    ///
-    /// Decondenser::generic().visual_size(unicode_width::UnicodeWidthStr::width);
-    /// ```
-    ///
-    /// [`unicode_width`]: https://docs.rs/unicode-width
-    #[must_use]
-    pub fn visual_size(mut self, value: fn(&str) -> usize) -> Self {
-        self.visual_size = value;
         self
     }
 }
