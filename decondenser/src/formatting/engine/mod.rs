@@ -238,35 +238,51 @@ impl<'a> Formatter<'a> {
 
     fn measure_tokens(&mut self) {
         let mut depth: usize = 0;
-        while let Some(&index) = self.unmeasured_indices.back() {
-            let mut pop_back_unmeasured = || {
-                let index = self.unmeasured_indices.pop_back();
+        let mut cursor = self.unmeasured_indices.len();
+
+        while let Some(new_cursor) = cursor.checked_sub(1) {
+            cursor = new_cursor;
+
+            let Some(&index) = self.unmeasured_indices.get(cursor) else {
+                debug_panic!("Unmeasured token index {cursor} is out of bounds");
+                return;
+            };
+
+            let mut remove_unmeasured = || {
+                let index = self.unmeasured_indices.remove(cursor);
                 debug_assert_ne!(index, None);
             };
 
             let Some(token) = self.tokens.get_mut(index) else {
                 debug_panic!("Unmeasured token index {index} is out of bounds");
-                pop_back_unmeasured();
+                remove_unmeasured();
                 continue;
             };
 
             match token {
                 Token::Begin(token) => {
                     if depth == 0 {
+                        // If we are on the first iteration, we shouldn't stop
+                        // measuring tokens - this is the first break/eof of
+                        // the block, that marks the end of measurement of the
+                        // previous break of the parent block if there is one.
+                        if cursor + 1 == self.unmeasured_indices.len() {
+                            continue;
+                        }
                         return;
                     }
-                    pop_back_unmeasured();
+                    remove_unmeasured();
                     token
                         .next_space_distance
                         .measure_from(self.total_single_line_size);
                     depth -= 1;
                 }
                 Token::End => {
-                    pop_back_unmeasured();
+                    remove_unmeasured();
                     depth += 1;
                 }
                 Token::Space(token) => {
-                    pop_back_unmeasured();
+                    remove_unmeasured();
                     token
                         .next_space_distance
                         .measure_from(self.total_single_line_size);

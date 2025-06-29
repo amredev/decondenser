@@ -75,9 +75,7 @@ impl Decondenser {
                     Punct::new("]").leading_space(breakable(0)),
                 ),
                 Group::new(
-                    Punct::new("{")
-                        .leading_space(1)
-                        .trailing_space(breakable(1)),
+                    Punct::new("{").trailing_space(breakable(1)),
                     Punct::new("}").leading_space(breakable(1)),
                 ),
                 // Elixir bitstrings
