@@ -29,13 +29,13 @@ use std::collections::VecDeque;
 use std::fmt;
 use token::{Measurement, Raw, Size};
 
-/// A primitive generic formatter that works in terms of a generic [`Token`]
-/// that has groups, breaks, and raw text. It ingests the [`Token`]s in time
-/// that is linear to their number and using the space that is linear to the
-/// maximum size of the line. Technically it doesn't need to buffer the entire
-/// output string, but it does so just in the sake of simplicity.
+/// A primitive generic formatter that works in terms of a [`Token`] that has
+/// groups, breaks, indent and raw text. It ingests the [`Token`]s in time that
+/// is linear to their number and using the space that is linear to the maximum
+/// size of the line. Technically it doesn't need to buffer the entire output
+/// string, but it does so just in the sake of simplicity.
 ///
-/// There are are two component parts to the formatter:
+/// There are two component parts to the formatter:
 /// - Calculating the single-line size of the tokens
 /// - Printing the measured tokens to the output using their size to decide
 ///   where to place line breaks.
@@ -160,7 +160,7 @@ impl<'a> Formatter<'a> {
         while let Some(token) = self.tokens.front_mut() {
             let staged_size = self.total_single_line_size - self.printed_single_line_size;
 
-            if staged_size <= self.printer.line_size_budget {
+            if staged_size <= self.printer.line_size_budget() {
                 return;
             }
 
@@ -221,10 +221,10 @@ impl<'a> Formatter<'a> {
                 Token::Indent(diff) => {
                     self.printer.indent(*diff);
                 }
-                Token::End { .. } => {
+                Token::End => {
                     if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {
-                        // This `End` is still staged for measurement, we can't
-                        // print it yet.
+                        // This `End` is still staged for its group measurement,
+                        // we can't print it yet.
                         return;
                     }
 

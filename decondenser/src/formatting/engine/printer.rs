@@ -54,12 +54,13 @@ pub(super) struct Printer<'a> {
     /// side of that could be done were already done. I.e. - there is no way to
     /// fit the token into the limit without breaking somewhere in the middle of
     /// some token, which is not allowed.
-    pub(super) line_size_budget: usize,
+    line_size_budget: usize,
 
     /// Level of indentation for the current line
     indent_level: usize,
 
-    pending_indent: bool,
+    /// True if the next token should be indented, false otherwise.
+    indent_pending: bool,
 
     /// Stack of groups-in-progress nested one inside another
     groups_stack: Vec<Group>,
@@ -78,7 +79,7 @@ impl<'a> Printer<'a> {
             output: String::new(),
             line_size_budget: std::cmp::max(config.max_line_size, config.no_break_size),
             indent_level: 0,
-            pending_indent: false,
+            indent_pending: false,
             groups_stack: Vec::new(),
         }
     }
@@ -185,15 +186,15 @@ impl<'a> Printer<'a> {
             self.output.push('·');
         }
 
-        self.pending_indent = true;
+        self.indent_pending = true;
     }
 
     fn print_pending_indent(&mut self) {
-        if !self.pending_indent {
+        if !self.indent_pending {
             return;
         }
 
-        self.pending_indent = false;
+        self.indent_pending = false;
 
         self.output.push('\n');
         self.output.extend(std::iter::repeat_n(
@@ -213,6 +214,10 @@ impl<'a> Printer<'a> {
         self.print_pending_indent();
         self.line_size_budget = self.line_size_budget.saturating_sub(str.visual_size());
         self.output.push_str(&str);
+    }
+
+    pub(super) fn line_size_budget(&self) -> usize {
+        self.line_size_budget
     }
 
     pub(super) fn eof(self) -> String {
