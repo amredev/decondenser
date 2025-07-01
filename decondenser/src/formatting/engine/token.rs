@@ -4,15 +4,35 @@ use crate::ansi::{BLACK, BLUE, BOLD, GREEN, NO_BOLD, RESET, WHITE, YELLOW};
 use crate::utils::{debug_panic, scope_path};
 use std::fmt;
 
+#[derive(Clone, Copy)]
 pub(super) enum Token<'a> {
     /// Starts a nested group
-    Begin(Begin),
+    Begin {
+        /// Calculated as the distance to the next [`Token::Space`] that follows
+        /// the paired [`Token::End`] on the same level of nesting or EOF.
+        next_space_distance: Measurement,
+        break_style: BreakStyle,
+    },
 
     /// Raw text that should be printed as-is.
-    Raw(Raw<'a>),
+    Raw(MeasuredStr<'a>),
 
-    /// A space can be turned into a line break if the line gets too long.
-    Space(Space<'a>),
+    /// "Breakable space" - a space can be turned into a line break if the line
+    /// gets too long.
+    Bsp {
+        /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
+        /// all tokens until the next [`Token::Space`] on the same level of nesting
+        /// or EOF.
+        next_space_distance: Measurement,
+
+        /// The number of space characters to print if this token is not turned into
+        /// a line break.
+        size: usize,
+    },
+
+    /// "Non-breakable space" - always stays static and doesn't turn into a
+    /// line break. Contains the number of space characters to print.
+    Nbsp(usize),
 
     /// Change the indent of the following content by the given number of
     /// levels. Applied only if the group is broken into multiple lines.
@@ -20,27 +40,6 @@ pub(super) enum Token<'a> {
 
     /// Closes a nested group
     End,
-}
-
-pub(super) struct Begin {
-    /// Calculated as the distance to the next [`Token::Space`] that follows
-    /// the paired [`Token::End`] on the same level of nesting or EOF.
-    pub(super) next_space_distance: Measurement,
-    pub(super) break_style: BreakStyle,
-}
-
-pub(super) struct Raw<'a> {
-    pub(super) content: MeasuredStr<'a>,
-}
-
-pub(super) struct Space<'a> {
-    /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
-    /// all tokens until the next [`Token::Space`] on the same level of nesting
-    /// or EOF.
-    pub(super) next_space_distance: Measurement,
-
-    /// The content of the space if it isn't turned into a line break.
-    pub(super) content: MeasuredStr<'a>,
 }
 
 #[derive(Clone, Copy)]
@@ -52,6 +51,7 @@ pub(super) enum Size {
     Infinite,
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum Measurement {
     Measured(Size),
 
@@ -109,54 +109,34 @@ impl fmt::Debug for Size {
     }
 }
 
-impl fmt::Debug for Raw<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { content } = self;
-
-        write!(
-            f,
-            "{:?}{WHITE}{content:?}{RESET}",
-            Size::Fixed(content.visual_size())
-        )
-    }
-}
-
-impl fmt::Debug for Space<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self {
-            next_space_distance,
-            content,
-        } = self;
-
-        write!(
-            f,
-            "{next_space_distance:?}{GREEN}{BOLD}Break{NO_BOLD} {content:?}{RESET}"
-        )
-    }
-}
-
-impl fmt::Debug for Begin {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self {
-            next_space_distance: size,
-            break_style,
-        } = self;
-
-        write!(
-            f,
-            "{size:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}{RESET}"
-        )
-    }
-}
-
 impl fmt::Debug for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Raw(token) => write!(f, "{token:?}"),
-            Self::Space(token) => write!(f, "{token:?}"),
-            Self::Begin(token) => write!(f, "{token:?}"),
-            Self::Indent(diff) => write!(f, "{BLACK}  - Indent({diff}){RESET}"),
-            Self::End => write!(f, "{BLACK}  - {BLUE}End{RESET}"),
-        }
+            Self::Raw(content) => write!(
+                f,
+                "{:?}{WHITE}{content:?}",
+                Size::Fixed(content.visual_size())
+            ),
+            Self::Bsp {
+                size,
+                next_space_distance,
+            } => {
+                write!(f, "{next_space_distance:?}{GREEN}{BOLD}Bsp{NO_BOLD} {size}")
+            }
+            Self::Nbsp(size) => write!(f, "{:?}{WHITE}Nbsp", Size::Fixed(*size)),
+            Self::Begin {
+                break_style,
+                next_space_distance,
+            } => {
+                write!(
+                    f,
+                    "{next_space_distance:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}"
+                )
+            }
+            Self::Indent(diff) => write!(f, "{BLACK}  - Indent({diff})"),
+            Self::End => write!(f, "{BLACK}  - {BLUE}End"),
+        }?;
+
+        write!(f, "{RESET}")
     }
 }

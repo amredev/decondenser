@@ -22,12 +22,13 @@ pub(super) use measured_str::MeasuredStr;
 
 use self::printer::Printer;
 use self::sliding_deque::SlidingDeque;
-use self::token::{Begin, Space, Token};
+use self::token::Token;
 use crate::Decondenser;
 use crate::utils::debug_panic;
+use printer::PrinterConfig;
 use std::collections::VecDeque;
 use std::fmt;
-use token::{Measurement, Raw, Size};
+use token::{Measurement, Size};
 
 /// A primitive generic formatter that works in terms of a [`Token`] that has
 /// groups, breaks, indent and raw text. It ingests the [`Token`]s in time that
@@ -75,7 +76,13 @@ impl<'a> Formatter<'a> {
             printed_single_line_size: 0,
             total_single_line_size: 0,
             unmeasured_indices: VecDeque::new(),
-            printer: Printer::new(config),
+            printer: Printer::new(PrinterConfig {
+                max_line_size: config.max_line_size,
+                no_break_size: config.no_break_size.unwrap_or(config.max_line_size / 2),
+                debug_layout: config.debug_layout,
+                debug_indent: config.debug_indent,
+                indent_str: MeasuredStr::new(&config.indent, config.visual_size),
+            }),
         }
     }
 
@@ -93,12 +100,12 @@ impl<'a> Formatter<'a> {
     }
 
     pub(crate) fn begin(&mut self, break_style: BreakStyle) {
-        self.push_unmeasured(Token::Begin(Begin {
+        self.push_unmeasured(Token::Begin {
             next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
             break_style,
-        }));
+        });
     }
 
     pub(crate) fn indent(&mut self, diff: isize) {
@@ -115,13 +122,13 @@ impl<'a> Formatter<'a> {
 
         // Special case for a `Begin Space End` sequence. In this case, we just
         // can just remove it entirely, since the group is empty.
-        if let Some(&Token::Space(Space { content, .. })) = tokens.next_back() {
-            if let Some(Token::Begin(_)) = tokens.next_back() {
+        if let Some(&Token::Bsp { size, .. }) = tokens.next_back() {
+            if let Some(Token::Begin { .. }) = tokens.next_back() {
                 self.tokens.pop_back();
                 self.tokens.pop_back();
                 self.unmeasured_indices.pop_back();
                 self.unmeasured_indices.pop_back();
-                self.total_single_line_size -= content.visual_size();
+                self.total_single_line_size -= size;
                 return;
             }
         }
@@ -129,17 +136,32 @@ impl<'a> Formatter<'a> {
         self.push_unmeasured(Token::End);
     }
 
-    pub(crate) fn space(&mut self, content: MeasuredStr<'a>) {
+    pub(crate) fn newline(&mut self, count: usize) {
         self.measure_tokens();
-        self.push_unmeasured(Token::Space(Space {
-            content,
+        self.break_while(|_| true);
+        self.printer.newline(count);
+    }
+
+    pub(crate) fn bsp(&mut self, size: usize) {
+        self.measure_tokens();
+        self.push_unmeasured(Token::Bsp {
+            size,
             next_space_distance: Measurement::Unmeasured {
                 preceding_tokens_size: self.total_single_line_size,
             },
-        }));
-        self.total_single_line_size = self
-            .total_single_line_size
-            .saturating_add(content.visual_size());
+        });
+        self.total_single_line_size += size;
+    }
+
+    pub(crate) fn nbsp(&mut self, count: usize) {
+        if self.unmeasured_indices.is_empty() {
+            self.printer.nbsp(count);
+            return;
+        }
+
+        self.tokens.push_back(Token::Nbsp(count));
+        self.total_single_line_size += count;
+        self.break_while_overflows();
     }
 
     pub(crate) fn raw(&mut self, content: MeasuredStr<'a>) {
@@ -148,33 +170,41 @@ impl<'a> Formatter<'a> {
             return;
         }
 
-        self.tokens.push_back(Token::Raw(Raw { content }));
-        self.total_single_line_size = self
-            .total_single_line_size
-            .saturating_add(content.visual_size());
-
-        self.break_if_overflow();
+        self.tokens.push_back(Token::Raw(content));
+        self.total_single_line_size += content.visual_size();
+        self.break_while_overflows();
     }
 
-    fn break_if_overflow(&mut self) {
-        while let Some(token) = self.tokens.front_mut() {
-            let staged_size = self.total_single_line_size - self.printed_single_line_size;
+    fn break_while_overflows(&mut self) {
+        self.break_while(|fmt| {
+            let pending_size = fmt.total_single_line_size - fmt.printed_single_line_size;
+            pending_size > fmt.printer.line_size_budget()
+        });
+    }
 
-            if staged_size <= self.printer.line_size_budget() {
+    /// Flush tokens assigning "infinite size" to the unmeasured tokens to force
+    /// the line breaks for those.
+    fn break_while(&mut self, condition: fn(&Self) -> bool) {
+        loop {
+            if !condition(self) {
                 return;
             }
+
+            let Some(token) = self.tokens.front_mut() else {
+                return;
+            };
 
             // We know that the content overflows, and if there is a chance to
             // break a group or turn a space into a line break, do it by
             // assigning infinite size to the unmeasured token.
-            if let Token::Space(Space {
+            if let Token::Bsp {
                 next_space_distance,
                 ..
-            })
-            | Token::Begin(Begin {
+            }
+            | Token::Begin {
                 next_space_distance,
                 ..
-            }) = token
+            } = token
             {
                 if let Measurement::Unmeasured { .. } = next_space_distance {
                     *next_space_distance = Measurement::Measured(Size::Infinite);
@@ -190,36 +220,46 @@ impl<'a> Formatter<'a> {
     }
 
     fn print_measured_tokens(&mut self) {
+        dbg!(&self);
+        // todo!(
+        //     "figure out space squashing, line_size_budget changes for nbsp/newline; \
+        //     preserve whitespace around punctuation as much as possible default in generic \
+        //     config; i.e. use `Option` for space config"
+        // );
+
         debug_assert_ne!(self.tokens.len(), 0);
 
-        while let Some(token) = self.tokens.front() {
+        while let Some(&token) = self.tokens.front() {
             match token {
-                Token::Raw(raw) => {
-                    self.printed_single_line_size = self
-                        .printed_single_line_size
-                        .saturating_add(raw.content.visual_size());
-
-                    self.printer.raw(raw.content);
+                Token::Raw(content) => {
+                    self.printed_single_line_size += content.visual_size();
+                    self.printer.raw(content);
                 }
-                Token::Space(space) => {
-                    let Measurement::Measured(distance) = space.next_space_distance else {
+                Token::Nbsp(count) => {
+                    self.printed_single_line_size += count;
+                    self.printer.nbsp(count);
+                }
+                Token::Bsp {
+                    next_space_distance,
+                    size,
+                } => {
+                    let Measurement::Measured(distance) = next_space_distance else {
                         return;
                     };
-
-                    self.printed_single_line_size = self
-                        .printed_single_line_size
-                        .saturating_add(space.content.visual_size());
-
-                    self.printer.space(space, distance);
+                    self.printed_single_line_size += size;
+                    self.printer.bsp(size, distance);
                 }
-                Token::Begin(begin) => {
-                    let Measurement::Measured(distance) = begin.next_space_distance else {
+                Token::Begin {
+                    next_space_distance,
+                    break_style,
+                } => {
+                    let Measurement::Measured(distance) = next_space_distance else {
                         return;
                     };
-                    self.printer.begin(begin, distance);
+                    self.printer.begin(break_style, distance);
                 }
                 Token::Indent(diff) => {
-                    self.printer.indent(*diff);
+                    self.printer.indent(diff);
                 }
                 Token::End => {
                     if self.unmeasured_indices.front() == Some(&self.tokens.basis()) {
@@ -260,7 +300,10 @@ impl<'a> Formatter<'a> {
             };
 
             match token {
-                Token::Begin(token) => {
+                Token::Begin {
+                    next_space_distance,
+                    ..
+                } => {
                     if depth == 0 {
                         // If we are on the first iteration, we shouldn't stop
                         // measuring tokens - this is the first break/eof of
@@ -272,25 +315,24 @@ impl<'a> Formatter<'a> {
                         return;
                     }
                     remove_unmeasured();
-                    token
-                        .next_space_distance
-                        .measure_from(self.total_single_line_size);
+                    next_space_distance.measure_from(self.total_single_line_size);
                     depth -= 1;
                 }
                 Token::End => {
                     remove_unmeasured();
                     depth += 1;
                 }
-                Token::Space(token) => {
+                Token::Bsp {
+                    next_space_distance,
+                    ..
+                } => {
                     remove_unmeasured();
-                    token
-                        .next_space_distance
-                        .measure_from(self.total_single_line_size);
+                    next_space_distance.measure_from(self.total_single_line_size);
                     if depth == 0 {
                         return;
                     }
                 }
-                Token::Raw(_) | Token::Indent(_) => {
+                Token::Raw(_) | Token::Nbsp(_) | Token::Indent(_) => {
                     debug_panic!(
                         "This token should never have been part of unmeasured \
                         token indices: {token:?}"
@@ -311,7 +353,7 @@ impl fmt::Debug for SlidingDeque<Token<'_>> {
 
         for (entry, i) in self.iter().zip(basis..) {
             match entry {
-                Token::Begin(_) => {
+                Token::Begin { .. } => {
                     indent += indent_size;
                     writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
                     indent += indent_size;

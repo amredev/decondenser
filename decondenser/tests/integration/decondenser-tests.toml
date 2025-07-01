@@ -13,7 +13,7 @@ Family { name: "Smith", members: [Member { name: "Alice", age: 30 }, Member { na
 output = """
 Test { key1: "value1", "key2": "value2" },
 [[1], [2], [3],],
- { "key1": "value1", "key2": [123] }Family {
+{ "key1": "value1", "key2": [123] }Family {
     name: "Smith",
     members: [
         Member { name: "Alice", age: 30 },
@@ -31,8 +31,8 @@ output = """
  {
     "key1": "value1",
     "key2": [
-         { "key3": 123 },
-         { "key4": 4 }
+        { "key3": 123 },
+        { "key4": 4 }
     ]
 }"""
 
@@ -94,11 +94,10 @@ const base64Compile = (str) =>
 """
 output = """
 const base64Compile = (str) => WebAssembly.compile(
-    typeof Buffer !== "undefined"
-            ? Buffer.from(
-        str,
-        "base64"
-    ): Uint8Array.from(atob(str), (b) => b.charCodeAt(0)),
+    typeof Buffer !== "undefined" ? Buffer.from(str, "base64"): Uint8Array.from(
+        atob(str),
+        (b) => b.charCodeAt(0)
+    ),
 );"""
 
 ["Trailing comma"]

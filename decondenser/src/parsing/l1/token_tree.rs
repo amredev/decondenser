@@ -1,18 +1,30 @@
 use crate::config;
 use std::fmt;
 
-pub(crate) enum AstNode<'a> {
-    Space { start: usize },
-    Raw { start: usize },
+pub(crate) enum TokenTree<'a> {
+    /// Single-line consecutive whitespace characters
+    Space {
+        start: usize,
+    },
+
+    /// Represents 1 or many subsequent `[\r]\n` sequences
+    NewLine {
+        start: usize,
+    },
+
+    /// Raw non-whitespace text
+    Raw {
+        start: usize,
+    },
     Punct(Punct<'a>),
     Group(Group<'a>),
     Quoted(Quoted<'a>),
 }
 
-impl AstNode<'_> {
+impl TokenTree<'_> {
     pub(crate) fn start(&self) -> usize {
         match self {
-            Self::Space { start } | Self::Raw { start } => *start,
+            Self::Space { start } | Self::NewLine { start } | Self::Raw { start } => *start,
             Self::Punct(punct) => punct.start,
             Self::Group(group) => group.opening,
             Self::Quoted(quoted) => quoted.opening,
@@ -20,10 +32,11 @@ impl AstNode<'_> {
     }
 }
 
-impl fmt::Debug for AstNode<'_> {
+impl fmt::Debug for TokenTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Space { start } => write!(f, "space {start}"),
+            Self::NewLine { start } => write!(f, "newline {start}"),
             Self::Raw { start } => write!(f, "raw {start}"),
             Self::Punct(punct) => write!(f, "punct{punct:#?}"),
             Self::Group(group) => write!(f, "group{group:#?}"),
@@ -89,7 +102,7 @@ impl fmt::Debug for Punct<'_> {
 
 pub(crate) struct Group<'a> {
     pub(crate) opening: usize,
-    pub(crate) content: Vec<AstNode<'a>>,
+    pub(crate) content: Vec<TokenTree<'a>>,
     pub(crate) closing: Option<usize>,
     pub(crate) config: &'a config::Group,
 }

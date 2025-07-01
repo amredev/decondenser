@@ -1,5 +1,5 @@
-use crate::sealed::Sealed;
 use crate::str::{IntoStr, Str};
+use crate::unstable::Sealed;
 
 /// Describes a grouping of content delimited via opening and closing sequences
 /// (usually some kind of brackets).
@@ -32,8 +32,8 @@ impl Group {
     ///
     /// Default is [`BreakStyle::Consistent`].
     #[must_use]
-    pub fn break_style(mut self) -> Self {
-        self.break_style = BreakStyle::Consistent;
+    pub fn break_style(mut self, value: BreakStyle) -> Self {
+        self.break_style = value;
         self
     }
 }
@@ -154,8 +154,8 @@ impl Punct {
     pub fn new(content: impl IntoStr) -> Self {
         Self {
             content: Str::new(content),
-            leading_space: Space::empty(),
-            trailing_space: Space::empty(),
+            leading_space: Space::fixed(0),
+            trailing_space: Space::fixed(0),
         }
     }
 
@@ -188,42 +188,46 @@ impl Punct {
     }
 }
 
-/// Defines the rules for inserting spaces and line breaks.
+/// Defines the rules for inserting space characters and line breaks.
 #[derive(Debug, Clone)]
 pub struct Space {
-    pub(crate) content: Str,
+    pub(crate) size: Option<usize>,
     pub(crate) breakable: bool,
 }
 
 impl Space {
-    /// Creates a zero-width [`Space`]. Equivalent to `Space::new(0)`.
-    #[must_use]
-    pub fn empty() -> Self {
-        Self::new(0)
-    }
-
-    /// Creates a [`Space`] with the given content.
-    ///
-    /// Accepts [`SpaceContent`] that enables using [`usize`] or string-like
-    /// types for defining the content of a [`Space`]. Passing [`usize`] means
-    /// creating a space of the number of whitespace characters equal to the
-    /// value of the number.
+    /// Creates a [`Space`] that preserves the same number of spaces as in the
+    /// input.
     ///
     /// Make sure to explicitly enable [`Space::breakable`] if you want the
-    /// space to be considered for turning into a new line when the content does
+    /// space to be considered for turning into a newline when the content does
     /// not fit on a single line, otherwise the space will always stay static
-    /// and never be turned into a line break.
+    /// and it'll never be turned into a line break.
     #[must_use]
-    pub fn new(content: impl SpaceContent) -> Self {
+    pub fn preserving() -> Self {
         Self {
-            content: content.convert(Sealed),
+            size: None,
             breakable: false,
         }
     }
 
-    /// If `true`, the space will be considered for breaking into a new line
-    /// if the content does not fit on a single line. If `false`, the space
-    /// will never be turned into a line break.
+    /// Creates a [`Space`] with the fixed number of whitespace characters.
+    ///
+    /// Make sure to explicitly enable [`Space::breakable`] if you want the
+    /// space to be considered for turning into a newline when the content does
+    /// not fit on a single line, otherwise the space will always stay static
+    /// and it'll never be turned into a line break.
+    #[must_use]
+    pub fn fixed(size: usize) -> Self {
+        Self {
+            size: Some(size),
+            breakable: false,
+        }
+    }
+
+    /// If `true`, the space will be considered for breaking into a newline if
+    /// the content does not fit on a single line. If `false`, the space will
+    /// never be turned into a line break.
     ///
     /// Default is `false`.
     #[must_use]
@@ -233,30 +237,28 @@ impl Space {
     }
 }
 
-impl<T: SpaceContent> From<T> for Space {
-    fn from(value: T) -> Self {
-        Self::new(value)
+impl From<usize> for Space {
+    fn from(value: usize) -> Self {
+        Self::fixed(value)
     }
 }
 
-/// A trait to enable using [`usize`] or string-like types for defining the
-/// content of a [`Space`].
-///
-/// Passing [`usize`] means creating a space of the
-/// number of whitespace characters equal to the value of the number.
-pub trait SpaceContent {
+/// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
+/// also the special case of a [`usize`] that represents a number of whitespace
+/// characters to use.
+pub trait Spacing {
     /// Sealed method. Can't be called outside of this crate.
-    fn convert(self, _: Sealed) -> Str;
+    fn spacing(self, _: Sealed) -> Str;
 }
 
-impl SpaceContent for usize {
-    fn convert(self, _: Sealed) -> Str {
-        Str::n_spaces(self)
+impl<T: IntoStr> Spacing for T {
+    fn spacing(self, _: Sealed) -> Str {
+        Str::new(self)
     }
 }
 
-impl<S: IntoStr> SpaceContent for S {
-    fn convert(self, _: Sealed) -> Str {
-        Str::new(self)
+impl Spacing for usize {
+    fn spacing(self, _: Sealed) -> Str {
+        Str::n_spaces(self)
     }
 }

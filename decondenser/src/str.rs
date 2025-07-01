@@ -1,4 +1,4 @@
-use crate::sealed::Sealed;
+use crate::unstable::Sealed;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
@@ -63,24 +63,12 @@ impl Str {
         str.into_str(Sealed)
     }
 
-    /// Construct an [`Str`] from the given number of spaces. It's optimized for
-    /// up to 10 spaces to avoid allocations for common small sizes.
+    /// Optimized constructor that creates an `Str` that represents the given
+    /// number of spaces. Doesn't allocate if `count <= 20`.
     pub(crate) fn n_spaces(count: usize) -> Self {
-        [
-            "",
-            " ",
-            "  ",
-            "   ",
-            "    ",
-            "     ",
-            "      ",
-            "       ",
-            "        ",
-            "         ",
-            "          ",
-        ]
-        .get(count)
-        .map(|&static_str| Self::new(static_str))
-        .unwrap_or_else(|| Self::new(" ".repeat(count)))
+        "                    "
+            .get(0..count)
+            .map(Self::new)
+            .unwrap_or_else(|| Self::new(" ".repeat(count)))
     }
 }

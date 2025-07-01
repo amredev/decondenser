@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Deref;
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub(crate) struct MeasuredStr<'a> {
     /// The size of the string in characters.
     visual_size: usize,

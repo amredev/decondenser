@@ -6,20 +6,24 @@ mod formatting;
 mod parsing;
 mod str;
 mod unescape;
+mod unstable;
 mod utils;
 
 pub use self::config::*;
 pub use str::IntoStr;
 
 use self::str::Str;
+use unstable::Sealed;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
 #[derive(Debug, Clone)]
+#[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
 pub struct Decondenser {
     indent: Str,
     max_line_size: usize,
-    no_break_size: usize,
+    no_break_size: Option<usize>,
+    preserve_newlines: bool,
     groups: Vec<Group>,
     quotes: Vec<Quote>,
     puncts: Vec<Punct>,
@@ -33,12 +37,12 @@ impl Decondenser {
     /// punctuation sequences configured. It is only useful as a base for custom
     /// configurations. Use [`Decondenser::generic()`] to get a general-purpose
     /// [`Decondenser`] configured for free-form text formatting.
-    #[must_use]
     pub fn empty() -> Self {
         Self {
             indent: Str::new("    "),
             max_line_size: 80,
-            no_break_size: 40,
+            no_break_size: None,
+            preserve_newlines: false,
             groups: vec![],
             quotes: vec![],
             puncts: vec![],
@@ -60,9 +64,8 @@ impl Decondenser {
     ///
     /// The default formatting is guaranteed to be stable across patch versions,
     /// but it can change between minor and major versions.
-    #[must_use]
     pub fn generic() -> Self {
-        let breakable = |size| Space::new(size).breakable(true);
+        let breakable = |size| Space::fixed(size).breakable(true);
 
         Self::empty()
             .groups([
@@ -75,7 +78,9 @@ impl Decondenser {
                     Punct::new("]").leading_space(breakable(0)),
                 ),
                 Group::new(
-                    Punct::new("{").trailing_space(breakable(1)),
+                    Punct::new("{")
+                        .leading_space(1)
+                        .trailing_space(breakable(1)),
                     Punct::new("}").leading_space(breakable(1)),
                 ),
                 // Elixir bitstrings
@@ -131,7 +136,7 @@ impl Decondenser {
     /// this size. For example, a single long string literal or a long sequence
     /// of non-whitespace characters may span more than this many characters,
     /// and decondenser does not currently attempt to break these up.
-    #[must_use]
+    #[must_use = "this is a pure function, calling it without using the result will do nothing"]
     pub fn decondense(&self, input: &str) -> String {
         self.decondense_impl(input)
     }
@@ -139,27 +144,46 @@ impl Decondenser {
     /// String to used to make a single level of indentation.
     ///
     /// Defaults to 4 spaces.
-    #[must_use]
-    pub fn indent(mut self, value: impl IntoStr) -> Self {
-        self.indent = Str::new(value);
+    pub fn indent(mut self, value: impl Spacing) -> Self {
+        self.indent = value.spacing(Sealed);
         self
     }
 
     /// Best-effort max size of a line to fit into.
     ///
-    /// See how size is calculated in the docs for [`visual_size`].
+    /// The resulting output will try to fit into this many characters per line,
+    /// but it is not guaranteed. For example, the [`no_break_size`] can cause
+    /// some lines to be longer than this value, or if the input has overly long
+    /// sequences of non-punctuation and non-group characters that can't be
+    /// broken into several lines.
+    ///
+    /// Line size is calculated with the [`visual_size`] algorithm, that can be
+    /// overridden.
     ///
     /// [`visual_size`]: Decondenser::visual_size()
-    #[must_use]
+    /// [`no_break_size`]: Decondenser::no_break_size()
     pub fn max_line_size(mut self, value: usize) -> Self {
         self.max_line_size = value;
         self
     }
 
-    /// Lines shorter than this will never be broken up at any indentation level.
-    #[must_use]
+    /// Lines shorter than this will never be broken up at any indentation
+    /// level, even if the line will be longer than the [`max_line_size`] at
+    /// that indentation level.
+    ///
+    /// By default, this is set to `max_line_size / 2`, which is `40` if the
+    /// default [`max_line_size`] of `80` is used, but is adjusted if
+    /// [`max_line_size`] is overridden accordingly.
+    ///
+    /// [`max_line_size`]: Decondenser::max_line_size()
     pub fn no_break_size(mut self, value: usize) -> Self {
-        self.no_break_size = value;
+        self.no_break_size = Some(value);
+        self
+    }
+
+    /// Keep line breaks from the input in the output
+    pub fn preserve_newlines(mut self, value: bool) -> Self {
+        self.preserve_newlines = value;
         self
     }
 
@@ -178,22 +202,22 @@ impl Decondenser {
     /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
     /// ```
     ///
+    /// Importantly, a single white space character (' ') is always considered
+    /// to have the size of 1 regardless of the configured algorithm.
+    ///
     /// [`unicode_width`]: https://docs.rs/unicode-width
-    #[must_use]
     pub fn visual_size(mut self, value: fn(&str) -> usize) -> Self {
         self.visual_size = value;
         self
     }
 
     /// Set group characters that are used to nest content.
-    #[must_use]
     pub fn groups(mut self, value: impl IntoIterator<Item = Group>) -> Self {
         self.groups = Vec::from_iter(value);
         self
     }
 
     /// Quotes notations that enclose unbreakable string-literal-like content.
-    #[must_use]
     pub fn quotes(mut self, value: impl IntoIterator<Item = Quote>) -> Self {
         self.quotes = Vec::from_iter(value);
         self
@@ -201,36 +225,8 @@ impl Decondenser {
 
     /// Punctuation sequences used to separate content and potentially break it
     /// into multiple lines. This can be controlled via the [`Punct`] config.
-    #[must_use]
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
         self
     }
-}
-
-#[cfg(feature = "unstable")]
-impl Decondenser {
-    /// Display the layout using special characters in the output:
-    /// - `«»` - groups with [`BreakStyle::Consistent`]
-    /// - `‹›` - groups with [`BreakStyle::Compact`]
-    #[must_use]
-    pub fn debug_layout(mut self, value: bool) -> Self {
-        self.debug_layout = value;
-        self
-    }
-
-    /// Show indentation levels in the output using subscript number characters
-    #[must_use]
-    pub fn debug_indent(mut self, value: bool) -> Self {
-        self.debug_indent = value;
-        self
-    }
-}
-
-mod sealed {
-    /// A sealed struct to future-proof the trait method signatures and prevent
-    /// users from implementing the traits of this crate. See the guide:
-    /// <https://predr.ag/blog/definitive-guide-to-sealed-traits-in-rust/>
-    #[expect(unnameable_types, missing_debug_implementations)]
-    pub struct Sealed;
 }

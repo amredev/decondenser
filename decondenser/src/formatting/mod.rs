@@ -2,131 +2,173 @@ mod engine;
 
 use crate::BreakStyle;
 use crate::parsing;
-use crate::parsing::l2::AstNode;
+use crate::parsing::l2::TokenTree;
 use engine::{Formatter, MeasuredStr};
 
 impl crate::Decondenser {
     /// This function lives here to keep the `lib.rs` file lean and focused on
     /// the public API of the `Decondenser` struct.
     pub(crate) fn decondense_impl(&self, input: &str) -> String {
-        let ast = parsing::l2::parse(self, input);
+        let tokens = parsing::l2::parse(self, input);
 
         let mut fmt = Formatter::new(self);
 
         fmt.begin(BreakStyle::Consistent);
-        self.format_ast(&mut fmt, &ast);
-        fmt.end();
 
+        FormattingCtx {
+            config: self,
+            fmt: &mut fmt,
+            tokens: tokens.iter(),
+        }
+        .format();
+
+        fmt.end();
         fmt.eof()
     }
+}
 
-    pub(crate) fn format_ast<'a>(&self, fmt: &mut Formatter<'a>, nodes: &[AstNode<'a>]) {
-        let mut nodes = nodes.iter();
+struct FormattingCtx<'fmt, 'input> {
+    config: &'input crate::Decondenser,
+    fmt: &'fmt mut Formatter<'input>,
+    tokens: std::slice::Iter<'input, TokenTree<'input>>,
+}
 
+impl<'input> FormattingCtx<'_, 'input> {
+    pub(crate) fn format(mut self) {
         // Skip leading space if it exists
-        Self::skip_space(&mut nodes);
+        self.skip_space();
 
-        while let Some(node) = nodes.next() {
+        while let Some(node) = self.tokens.next() {
             match node {
-                &AstNode::Space(content) => {
-                    let next = nodes.clone().next();
+                TokenTree::Space(_content) => {
+                    let next = self.tokens.clone().next();
 
                     match next {
-                        Some(AstNode::Punct(_) | AstNode::Group(_)) | None => {
+                        Some(TokenTree::Punct(_) | TokenTree::Group(_) | TokenTree::NewLine(_))
+                        | None => {
                             // Punct and Group delimiters define their own
                             // leading whitespace, and we also don't want to
-                            // output trailing whitespace at the end of output,
-                            // so skip this space.
+                            // output trailing whitespace at the end of
+                            // line/output, so skip this space.
                         }
                         _ => {
-                            fmt.raw(MeasuredStr::new(content, self.visual_size));
+                            self.fmt.nbsp(1);
                         }
                     }
                 }
-                &AstNode::Raw(content) => {
-                    fmt.raw(self.measured_str(content));
+                &TokenTree::NewLine(count) => {
+                    if self.config.preserve_newlines {
+                        self.fmt.newline(count.clamp(1, 2));
+                    } else {
+                        self.fmt.nbsp(1);
+                    }
+                    self.skip_space();
                 }
-                &AstNode::Punct(punct) => {
-                    self.space(fmt, &punct.leading_space);
-                    fmt.raw(self.measured_str(&punct.content));
+                TokenTree::Raw(content) => {
+                    self.fmt.raw(self.measured_str(content));
+                }
+                TokenTree::Punct(punct) => {
+                    self.space(&punct.leading_space);
+                    self.fmt.raw(self.measured_str(&punct.content));
 
-                    Self::skip_space(&mut nodes);
-
-                    if nodes.clone().next().is_none() {
+                    if self.tokens.clone().next().is_none() {
                         return;
                     }
 
-                    self.space(fmt, &punct.trailing_space);
+                    self.trailing_space(&punct.trailing_space);
                 }
-                AstNode::Group(group) => {
+                TokenTree::Group(group) => {
                     let config = &group.config;
 
-                    fmt.begin(BreakStyle::Consistent);
+                    self.fmt.begin(BreakStyle::Consistent);
 
-                    self.space(fmt, &config.opening.leading_space);
-                    fmt.raw(self.measured_str(&config.opening.content));
-                    self.space(fmt, &config.opening.trailing_space);
+                    self.space(&config.opening.leading_space);
+                    self.fmt.raw(self.measured_str(&config.opening.content));
+                    self.space(&config.opening.trailing_space);
 
                     let indent = config.opening.trailing_space.breakable
                         || config.closing.leading_space.breakable;
 
                     if indent {
-                        fmt.indent(1);
+                        self.fmt.indent(1);
                     }
 
-                    self.format_ast(fmt, &group.content);
+                    FormattingCtx {
+                        config: self.config,
+                        fmt: &mut *self.fmt,
+                        tokens: group.content.iter(),
+                    }
+                    .format();
 
                     if indent {
-                        fmt.indent(-1);
+                        self.fmt.indent(-1);
                     }
 
                     if group.closed {
                         if !group.content.is_empty() {
-                            self.space(fmt, &config.closing.leading_space);
+                            self.space(&config.closing.leading_space);
                         }
-                        fmt.raw(self.measured_str(&config.closing.content));
-                        self.space(fmt, &config.closing.trailing_space);
+                        self.fmt.raw(self.measured_str(&config.closing.content));
+                        self.space(&config.closing.trailing_space);
 
-                        Self::skip_space(&mut nodes);
+                        self.skip_space();
                     }
 
-                    fmt.end();
+                    self.fmt.end();
                 }
-                AstNode::Quoted(quoted) => {
-                    fmt.raw(self.measured_str(&quoted.config.opening));
+                TokenTree::Quoted(quoted) => {
+                    self.fmt.raw(self.measured_str(&quoted.config.opening));
 
                     for content in &quoted.content {
-                        fmt.raw(self.measured_str(content.text()));
+                        self.fmt.raw(self.measured_str(content.text()));
                     }
 
                     if quoted.closed {
-                        fmt.raw(self.measured_str(&quoted.config.closing));
+                        self.fmt.raw(self.measured_str(&quoted.config.closing));
                     }
                 }
             }
         }
     }
 
-    fn skip_space<'item, 'input>(iter: &mut (impl Iterator<Item = &'item AstNode<'input>> + Clone))
-    where
-        'input: 'item,
-    {
-        if let Some(AstNode::Space(_)) = iter.clone().next() {
-            iter.next();
+    fn skip_space(&mut self) {
+        while let Some(next) = self.tokens.clone().next() {
+            match next {
+                TokenTree::Space(_) => {}
+                TokenTree::NewLine(_) if !self.config.preserve_newlines => {}
+                _ => return,
+            }
+
+            self.tokens.next();
         }
     }
 
     fn measured_str<'a>(&self, str: &'a str) -> MeasuredStr<'a> {
-        MeasuredStr::new(str, self.visual_size)
+        MeasuredStr::new(str, self.config.visual_size)
     }
 
-    fn space<'a>(&self, fmt: &mut Formatter<'a>, space: &'a crate::Space) {
-        let content = self.measured_str(&space.content);
+    fn trailing_space(&mut self, space: &'input crate::Space) {
+        self.skip_space();
+
+        let Some(next) = self.tokens.clone().next() else {
+            // Prevent trailing space at the end of the output
+            return;
+        };
+
+        if let TokenTree::NewLine(_) = next {
+            return;
+        }
+
+        self.space(space);
+    }
+
+    fn space(&mut self, space: &'input crate::Space) {
+        let size = space.size.expect("TODO: handle preserving spaces");
 
         if space.breakable {
-            fmt.space(content);
+            self.fmt.bsp(size);
         } else {
-            fmt.raw(content);
+            self.fmt.nbsp(size);
         }
     }
 }

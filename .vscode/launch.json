@@ -21,7 +21,11 @@
         },
         "args": ["build", "-p", "decondenser-cli"]
       },
-      "args": ["--input", "dbg.md", "--max-line-size", "1"]
+      "args": [
+        "--input=dbg.md",
+        "--config=decondenser.dbg.toml",
+        "--output=dbg.out.md"
+      ]
     }
   ]
 }

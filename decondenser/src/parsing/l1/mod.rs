@@ -1,13 +1,13 @@
-mod ast;
 mod cursor;
+mod token_tree;
 
-pub(crate) use ast::*;
+pub(crate) use token_tree::*;
 
 use crate::{Decondenser, config};
 use cursor::Cursor;
 use std::mem;
 
-pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<AstNode<'a>> {
+pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTree<'a>> {
     let mut lexer = Parser {
         config,
         cursor: Cursor::new(input),
@@ -20,16 +20,26 @@ pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<AstNode<
 struct Parser<'a> {
     config: &'a Decondenser,
     cursor: Cursor<'a>,
-    output: Vec<AstNode<'a>>,
+    output: Vec<TokenTree<'a>>,
 }
 
 impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
-            if char.is_whitespace() {
-                if !matches!(self.output.last(), Some(AstNode::Space { .. })) {
+            if char == '\n' {
+                if !matches!(self.output.last(), Some(TokenTree::NewLine { .. })) {
                     let start = self.cursor.byte_offset();
-                    self.output.push(AstNode::Space { start });
+                    self.output.push(TokenTree::NewLine { start });
+                }
+
+                self.cursor.next();
+                continue;
+            }
+
+            if char.is_whitespace() {
+                if !matches!(self.output.last(), Some(TokenTree::Space { .. })) {
+                    let start = self.cursor.byte_offset();
+                    self.output.push(TokenTree::Space { start });
                 }
 
                 self.cursor.next();
@@ -68,13 +78,13 @@ impl<'a> Parser<'a> {
                 .find_map(|punct| Some((punct, self.cursor.strip_prefix(&punct.content)?)));
 
             if let Some((config, start)) = punct {
-                self.output.push(AstNode::Punct(Punct { start, config }));
+                self.output.push(TokenTree::Punct(Punct { start, config }));
                 continue;
             }
 
-            if !matches!(self.output.last(), Some(AstNode::Raw { .. })) {
+            if !matches!(self.output.last(), Some(TokenTree::Raw { .. })) {
                 let start = self.cursor.byte_offset();
-                self.output.push(AstNode::Raw { start });
+                self.output.push(TokenTree::Raw { start });
             }
 
             self.cursor.next();
@@ -95,7 +105,7 @@ impl<'a> Parser<'a> {
             config,
         };
 
-        self.output.push(AstNode::Group(group));
+        self.output.push(TokenTree::Group(group));
     }
 
     fn parse_quoted(&mut self, opening: usize, config: &'a config::Quote) {
@@ -133,6 +143,6 @@ impl<'a> Parser<'a> {
             config,
         };
 
-        self.output.push(AstNode::Quoted(quoted));
+        self.output.push(TokenTree::Quoted(quoted));
     }
 }
