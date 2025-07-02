@@ -12,3 +12,6 @@ decondenser-wasm/src/bindings.rs
 
 # Special name pattern for dirty experimentation that should not be committed
 *dbg*
+
+# Used only for debugging within this repo.
+decondenser.toml

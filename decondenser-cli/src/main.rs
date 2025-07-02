@@ -1,20 +1,42 @@
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_code)]
 
 mod cli;
 mod config;
-mod styling;
+mod error;
+mod styles;
+mod yaml;
 
-use clap::Parser;
+use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term::{self, termcolor};
+use error::{Error, Result};
 use std::process::ExitCode;
 
-type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
+type Files = SimpleFiles<String, String>;
+type Diagnostic = codespan_reporting::diagnostic::Diagnostic<usize>;
 
 fn main() -> ExitCode {
-    let Err(err) = cli::Cli::parse().run() else {
+    let mut files = Files::new();
+
+    let Err(err) = cli::run(&mut files) else {
         return ExitCode::SUCCESS;
     };
 
-    eprintln!("Error: {err:?}");
+    match err {
+        Error::Diagnostic(diags) => {
+            for diag in &diags {
+                let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
+                let config = term::Config::default();
+                let result = term::emit(&mut writer.lock(), &config, &files, diag);
+                if let Err(err) = result {
+                    eprintln!("Failed to emit diagnostic: {err:#?}");
+                }
+            }
+        }
+        Error::Other(err) => {
+            eprintln!("Error: {err:?}");
+        }
+    }
 
     ExitCode::FAILURE
 }

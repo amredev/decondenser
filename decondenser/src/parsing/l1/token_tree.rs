@@ -96,7 +96,7 @@ pub(crate) struct Punct<'a> {
 
 impl fmt::Debug for Punct<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.start, self.config.content,)
+        write!(f, "{}: {}", self.start, self.config.symbol,)
     }
 }
 
@@ -118,7 +118,7 @@ impl fmt::Debug for Group<'_> {
         write!(
             f,
             "({}: {} -> {closing}) {:#?}",
-            self.opening, self.config.opening.content, self.content
+            self.opening, self.config.opening.symbol, self.content
         )
     }
 }

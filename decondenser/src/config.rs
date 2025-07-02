@@ -8,12 +8,8 @@ use crate::unstable::Sealed;
 /// single line.
 #[derive(Debug, Clone)]
 pub struct Group {
-    /// The sequence that opens the group.
     pub(crate) opening: Punct,
-
-    /// The sequence that closes the group.
     pub(crate) closing: Punct,
-
     pub(crate) break_style: BreakStyle,
 }
 
@@ -48,8 +44,8 @@ impl Group {
 /// Note that beaking is optional. It only takes place if the content of the
 /// group can not fit on a single line. If it does fit - it won't be broken
 /// disregarding the [`BreakStyle`].
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(feature = "unstable"), non_exhaustive)]
 pub enum BreakStyle {
     /// Turn **all** breaks into a line break so that every item appears on its
     /// own line.
@@ -84,14 +80,8 @@ pub enum BreakStyle {
 /// sequences logic.
 #[derive(Debug, Clone)]
 pub struct Quote {
-    /// The sequence that opens the quoted content.
     pub(crate) opening: Str,
-
-    /// The sequence that closes the quoted content.
     pub(crate) closing: Str,
-
-    /// The sequences that are used to escape special characters in the quoted
-    /// content.
     pub(crate) escapes: Vec<Escape>,
 }
 
@@ -142,8 +132,7 @@ impl Escape {
 /// but it can also be a sequence of characters like `=>`.
 #[derive(Debug, Clone)]
 pub struct Punct {
-    pub(crate) content: Str,
-
+    pub(crate) symbol: Str,
     pub(crate) leading_space: Space,
     pub(crate) trailing_space: Space,
 }
@@ -151,9 +140,9 @@ pub struct Punct {
 impl Punct {
     /// Creates a new [`Punct`] with the given content.
     #[must_use]
-    pub fn new(content: impl IntoStr) -> Self {
+    pub fn new(symbol: impl IntoStr) -> Self {
         Self {
-            content: Str::new(content),
+            symbol: Str::new(symbol),
             leading_space: Space::fixed(0),
             trailing_space: Space::fixed(0),
         }

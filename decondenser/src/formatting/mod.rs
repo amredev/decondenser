@@ -69,7 +69,7 @@ impl<'input> FormattingCtx<'_, 'input> {
                 }
                 TokenTree::Punct(punct) => {
                     self.space(&punct.leading_space);
-                    self.fmt.raw(self.measured_str(&punct.content));
+                    self.fmt.raw(self.measured_str(&punct.symbol));
 
                     if self.tokens.clone().next().is_none() {
                         return;
@@ -83,7 +83,7 @@ impl<'input> FormattingCtx<'_, 'input> {
                     self.fmt.begin(BreakStyle::Consistent);
 
                     self.space(&config.opening.leading_space);
-                    self.fmt.raw(self.measured_str(&config.opening.content));
+                    self.fmt.raw(self.measured_str(&config.opening.symbol));
                     self.space(&config.opening.trailing_space);
 
                     let indent = config.opening.trailing_space.breakable
@@ -108,7 +108,7 @@ impl<'input> FormattingCtx<'_, 'input> {
                         if !group.content.is_empty() {
                             self.space(&config.closing.leading_space);
                         }
-                        self.fmt.raw(self.measured_str(&config.closing.content));
+                        self.fmt.raw(self.measured_str(&config.closing.symbol));
                         self.space(&config.closing.trailing_space);
 
                         self.skip_space();

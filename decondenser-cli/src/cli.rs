@@ -1,106 +1,89 @@
 use crate::config::Config;
+use crate::{Files, Result};
 use anyhow::Context;
-use clap::Parser;
+use clap::{arg, value_parser};
 use std::io::Read;
 use std::path::PathBuf;
 
-#[derive(Parser)]
-#[command(
-    name = "decondenser",
-    about =
-        "Pretty-print any text based on brackets nesting. \
-        More docs: https://decondenser.dev",
-    long_about = None,
-    version,
-    styles = crate::styling::CLI_STYLES,
-)]
-pub(crate) struct Cli {
-    /// Specify a file path or "-" for stdin
-    #[clap(long, default_value = "-")]
-    input: String,
-
-    /// Specify a file path or "-" for stdout
-    #[clap(long, default_value = "-")]
-    output: String,
-
-    /// Language profile to use. Can be either a built-in language or a custom
-    /// one defined in the config file.
-    #[clap(long, default_value = "generic")]
-    lang: String,
-
-    /// Path to the config file. By default, will search for a file named
-    /// "decondenser.toml" in the current and parent directories.
-    #[clap(long)]
-    config: Option<PathBuf>,
-
-    /// Only used for debugging by the decondenser developers.
-    ///
-    /// Enables outputting of the layout control characters.
-    #[clap(long, hide = true)]
-    debug_layout: bool,
-
-    /// Only used for debugging by the decondenser developers.
-    ///
-    /// Enables outputting of the indent control characters.
-    #[clap(long, hide = true)]
-    debug_indent: bool,
-
-    /// Show the line width in the output.
-    #[clap(
-        long,
-        hide = true,
-        conflicts_with = "debug_layout",
-        conflicts_with = "debug_indent"
-    )]
-    debug_line_size: bool,
+fn cli() -> clap::Command {
+    clap::Command::new("decondenser")
+        .about(
+            "Pretty-print any text based on brackets nesting. \
+            More docs: https://decondenser.dev",
+        )
+        .long_about(None)
+        .version(env!("CARGO_PKG_VERSION"))
+        .styles(crate::styles::CLI_STYLES)
+        .arg(arg!(--input <INPUT> r#"Specify a file path or "-" for stdin"#).default_value("-"))
+        .arg(arg!(--output <OUTPUT> r#"Specify a file path or "-" for stdout"#).default_value("-"))
+        .arg(
+            arg!(
+                --config <CONFIG>
+                "Path to the config file. By default, will search for a file named \
+                \"decondenser.toml\" in the current and parent directories."
+            )
+            .value_parser(value_parser!(PathBuf))
+            .required(false)
+            .default_value("decondenser.toml"),
+        )
+        .arg(
+            arg!(
+                --lang <LANG>
+                "Language profile to use. Can be either a built-in \
+                language or a custom one defined in the config file."
+            )
+            .default_value("generic"),
+        )
 }
 
-impl Cli {
-    pub(crate) fn run(self) -> crate::Result {
-        let input = if self.input == "-" {
-            let mut input = String::new();
-            std::io::stdin()
-                .read_to_string(&mut input)
-                .with_context(|| "Failed to read from stdin")?;
-            input
-        } else {
-            std::fs::read_to_string(&self.input)
-                .with_context(|| format!("Failed to read file '{}'", self.input))?
-        };
+pub(crate) fn run(files: &mut Files) -> Result {
+    let matches = cli().get_matches();
 
-        let config = match self.config {
-            Some(config) => Config::from_file(&config)?.with_context(|| {
-                format!(
-                    "Config file was not found at the specified path: '{}'",
-                    config.display()
-                )
-            })?,
-            None => Config::discover()?.unwrap_or_default(),
-        };
+    let input = matches.get_one::<String>("input").unwrap();
+    let output = matches.get_one::<String>("output").unwrap();
+    let config = matches.get_one::<PathBuf>("config");
+    let lang = matches.get_one::<String>("lang").unwrap();
 
-        let output = config
-            .into_decondenser(&self.lang)?
-            .debug_indent(self.debug_indent)
-            .debug_layout(self.debug_layout)
-            .decondense(&input);
+    let config = match config {
+        Some(config) => Config::from_file(files, config)?.with_context(|| {
+            format!(
+                "Config file was not found at the specified path: '{}'",
+                config.display()
+            )
+        })?,
+        None => Config::discover(files)?.unwrap_or_default(),
+    };
+    let decondenser = config.into_decondenser(lang)?;
 
-        if self.debug_line_size {
-            let max_width = output
-                .lines()
-                // TODO: use `unicode-width` crate
-                .map(|line| line.chars().count())
-                .max()
-                .unwrap_or(0);
+    let output_str = decondenser.decondense(&read_input(input)?);
 
-            eprintln!("Max line width: {max_width}");
-        }
+    write_output(output, output_str)
+}
 
-        if self.output == "-" {
-            println!("{output}");
-            return Ok(());
-        }
+fn read_input(input: &str) -> Result<String> {
+    if input != "-" {
+        let content = std::fs::read_to_string(input)
+            .with_context(|| format!("Failed to read file '{input}'"))?;
 
-        std::fs::write(&self.output, output)
-            .with_context(|| format!("Failed to write to file '{}'", self.output))
+        return Ok(content);
     }
+
+    let mut content = String::new();
+    std::io::stdin()
+        .read_to_string(&mut content)
+        .with_context(|| "Failed to read from stdin")?;
+
+    Ok(content)
+}
+
+fn write_output(output: &str, content: String) -> Result {
+    if output == "-" {
+        println!("{content}");
+        return Ok(());
+    }
+
+    std::fs::write(output, content)
+        .with_context(|| format!("Failed to write to file '{output}'"))?;
+
+    Ok(())
 }

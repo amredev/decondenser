@@ -19,9 +19,22 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-anyhow        = { workspace = true }
-clap          = { workspace = true, features = ["derive"] }
-decondenser   = { workspace = true, features = ["unstable"] }
-serde         = { workspace = true, features = ["derive"] }
-toml_edit     = { workspace = true, features = ["parse", "serde"] }
-unicode-width = { workspace = true }
+anyhow             = { workspace = true }
+codespan-reporting = { workspace = true }
+decondenser        = { workspace = true, features = ["unstable"] }
+marked-yaml        = "0.8"
+toml-span          = { version = "0.5", features = ["reporting"] }
+unicode-width      = { workspace = true }
+
+[dependencies.clap]
+workspace = true
+# See https://docs.rs/clap/latest/clap/_features/index.html
+features = [
+  "std",
+  "color",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "wrap_help",
+]

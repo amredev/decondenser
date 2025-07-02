@@ -21,11 +21,7 @@
         },
         "args": ["build", "-p", "decondenser-cli"]
       },
-      "args": [
-        "--input=dbg.md",
-        "--config=decondenser.dbg.toml",
-        "--output=dbg.out.md"
-      ]
+      "args": ["--input=dbg.md", "--output=dbg.out.md"]
     }
   ]
 }

@@ -16,7 +16,7 @@ impl fmt::Debug for TokenTree<'_> {
             Self::Space(text) => write!(f, "space {text:?}"),
             Self::NewLine(count) => write!(f, "newline {count}"),
             Self::Raw(text) => write!(f, "raw {text:?}"),
-            Self::Punct(punct) => write!(f, "punct {:?}", punct.content),
+            Self::Punct(punct) => write!(f, "punct {:?}", punct.symbol),
             Self::Group(group) => write!(f, "group {group:?}"),
             Self::Quoted(quoted) => write!(f, "quoted {quoted:?}"),
         }
@@ -76,7 +76,7 @@ pub(crate) struct Group<'a> {
 impl fmt::Debug for Group<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let closing = if self.closed {
-            &self.config.closing.content
+            &self.config.closing.symbol
         } else {
             "{none}"
         };
