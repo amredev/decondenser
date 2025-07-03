@@ -29,6 +29,5 @@ unstable = []
 [dependencies]
 
 [dev-dependencies]
-serde_json    = "1.0"
-toml_edit     = "0.22"
+toml_edit     = { workspace = true }
 unicode-width = { workspace = true }

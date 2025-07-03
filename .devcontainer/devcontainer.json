@@ -144,7 +144,10 @@
         "ms-vscode.extension-test-runner",
 
         // TOML LSP
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+
+        // Preview generated HTML files
+        "ms-vscode.live-server"
       ]
     }
   }

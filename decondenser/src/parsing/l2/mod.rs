@@ -1,55 +1,54 @@
-mod ast;
+mod token_tree;
 
-pub(crate) use ast::*;
+pub(crate) use token_tree::*;
 
 use super::l1;
+use crate::Decondenser;
 
-pub(crate) fn parse<'a>(params: &l1::ParseParams<'a>) -> Vec<AstNode<'a>> {
-    let ast = l1::parse(params);
+pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTree<'a>> {
+    let tokens = l1::parse(config, input);
 
-    AstFromL1 {
-        input: params.input,
-    }
-    .convert(&ast, params.input.len())
+    TokenTreesFromL1 { input }.convert(&tokens, input.len())
 }
 
 #[derive(Copy, Clone)]
-struct AstFromL1<'a> {
+struct TokenTreesFromL1<'a> {
     input: &'a str,
 }
 
-impl<'a> AstFromL1<'a> {
+impl<'a> TokenTreesFromL1<'a> {
     fn convert(
         self,
-        nodes: &[l1::AstNode<'a>],
+        nodes: &[l1::TokenTree<'a>],
 
         // Offset after the last node in the list. This is equal to the node,
         // that follows the surrounding group or the input length if the is no
         // node after the surrounding group.
         end: usize,
-    ) -> Vec<AstNode<'a>> {
+    ) -> Vec<TokenTree<'a>> {
         let input = self.input;
         nodes
             .iter()
             .enumerate()
             .map(|(i, node)| {
                 let next = nodes.get(i + 1);
-                let end = next.map(l1::AstNode::start).unwrap_or(end);
+                let end = next.map(l1::TokenTree::start).unwrap_or(end);
 
                 match node {
-                    l1::AstNode::Space { start } => AstNode::Space(&input[*start..end]),
-                    l1::AstNode::Raw { start } => AstNode::Raw(&input[*start..end]),
-                    l1::AstNode::Punct(punct) => AstNode::Punct(punct.config),
-                    l1::AstNode::Group(group) => {
+                    l1::TokenTree::Space { start } => TokenTree::Space(&input[*start..end]),
+                    l1::TokenTree::NewLine { start } => TokenTree::NewLine(end - *start),
+                    l1::TokenTree::Raw { start } => TokenTree::Raw(&input[*start..end]),
+                    l1::TokenTree::Punct(punct) => TokenTree::Punct(punct.config),
+                    l1::TokenTree::Group(group) => {
                         let content_end = group.closing.unwrap_or(end);
 
-                        AstNode::Group(Group {
+                        TokenTree::Group(Group {
                             content: self.convert(&group.content, content_end),
                             closed: group.closing.is_some(),
                             config: group.config,
                         })
                     }
-                    l1::AstNode::Quoted(quoted) => {
+                    l1::TokenTree::Quoted(quoted) => {
                         let content_end = quoted.closing.unwrap_or(end);
 
                         let content = quoted
@@ -68,7 +67,7 @@ impl<'a> AstFromL1<'a> {
                             })
                             .collect();
 
-                        AstNode::Quoted(Quoted {
+                        TokenTree::Quoted(Quoted {
                             content,
                             closed: quoted.closing.is_some(),
                             config: quoted.config,
