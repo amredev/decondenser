@@ -44,12 +44,12 @@ impl Config {
             .chain(BUILTIN_LANGS.iter().map(|(name, _)| *name))
             .collect::<BTreeSet<_>>();
 
-        return Err(anyhow::anyhow!(
+        Err(anyhow::anyhow!(
             "Unrecognized language: '{lang}'. \
             The language must be one of the following (builtin or custom): \
             {available_langs:?}",
         )
-        .into());
+        .into())
     }
 }
 

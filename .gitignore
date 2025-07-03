@@ -14,4 +14,4 @@ decondenser-wasm/src/bindings.rs
 *dbg*
 
 # Used only for debugging within this repo.
-decondenser.toml
+decondenser.yml

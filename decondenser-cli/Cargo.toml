@@ -20,21 +20,13 @@ doc = false
 
 [dependencies]
 anyhow             = { workspace = true }
-codespan-reporting = { workspace = true }
+codespan-reporting = { workspace = true, features = ["termcolor"] }
 decondenser        = { workspace = true, features = ["unstable"] }
-marked-yaml        = "0.8"
-toml-span          = { version = "0.5", features = ["reporting"] }
+hashlink           = { workspace = true }
+marked-yaml        = { workspace = true }
 unicode-width      = { workspace = true }
 
 [dependencies.clap]
 workspace = true
 # See https://docs.rs/clap/latest/clap/_features/index.html
-features = [
-  "std",
-  "color",
-  "help",
-  "usage",
-  "error-context",
-  "suggestions",
-  "wrap_help",
-]
+features = ["std", "color", "help", "usage", "error-context", "suggestions"]

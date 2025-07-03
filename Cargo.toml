@@ -12,7 +12,9 @@ repository = "https://github.com/amredev/decondenser"
 # crates.io
 anyhow             = "1.0"
 clap               = { version = "4.5", default-features = false }
-codespan-reporting = "0.12"
+codespan-reporting = { version = "0.12", default-features = false }
+hashlink           = "0.10"
+marked-yaml        = "0.8"
 toml_edit          = { version = "0.22", default-features = false }
 unicode-width      = { version = "0.2.1", default-features = false }
 yaml-rust2         = "0.10"

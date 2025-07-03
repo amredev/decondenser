@@ -1,6 +1,5 @@
 mod deser;
 mod into_core;
-mod utils;
 
 use crate::{Files, Result};
 use anyhow::Context;
@@ -70,7 +69,7 @@ impl Config {
         std::env::current_dir()
             .context("Failed to get the current directory of the process")?
             .ancestors()
-            .find_map(|path| Self::from_file(files, &path.join("decondenser.toml")).transpose())
+            .find_map(|path| Self::from_file(files, &path.join("decondenser.yml")).transpose())
             .transpose()
     }
 
@@ -88,16 +87,7 @@ impl Config {
         let file_id = files.add(path.to_string_lossy().into_owned(), content);
         let file = files.get(file_id).unwrap();
 
-        let result = toml_span::parse(file.source());
-        let toml_value = result.map_err(|err| vec![err.to_diagnostic(file_id)])?;
-
-        let config =
-            <Self as toml_span::Deserialize>::deserialize(&mut { toml_value }).map_err(|err| {
-                err.errors
-                    .into_iter()
-                    .map(|err| err.to_diagnostic(file_id))
-                    .collect::<Vec<_>>()
-            })?;
+        let config = crate::yaml::from_str(file_id, file.source())?;
 
         Ok(Some(config))
     }

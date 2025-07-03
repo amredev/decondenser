@@ -1,27 +1,21 @@
-use super::utils::{self, DeserResult, integer, table};
 use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
+use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
 use decondenser::BreakStyle;
-use toml_span::de_helpers::{TableHelper, expected};
-use toml_span::value::ValueInner;
-use toml_span::{Deserialize, Value};
 
-impl<'de> Deserialize<'de> for Config {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        table(value, |table| Self {
-            formatting: Formatting::flattened(table),
-            langs: table
-                .optional::<utils::TomlMap<_>>("lang")
-                .map(|map| map.0)
-                .unwrap_or_default(),
-            debug_layout: table.optional("debug_layout").unwrap_or_default(),
-            debug_indent: table.optional("debug_indent").unwrap_or_default(),
+impl Deserialize for Config {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.object(|obj| Self {
+            formatting: Formatting::flattened(obj),
+            langs: obj.optional("lang").unwrap_or_default(),
+            debug_layout: obj.optional("debug_layout").unwrap_or_default(),
+            debug_indent: obj.optional("debug_indent").unwrap_or_default(),
         })
     }
 }
 
-impl<'de> Deserialize<'de> for Lang {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        table(value, |table| Self {
+impl Deserialize for Lang {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.object(|table| Self {
             formatting: Formatting::flattened(table),
             groups: table.optional("groups"),
             quotes: table.optional("quotes"),
@@ -31,7 +25,7 @@ impl<'de> Deserialize<'de> for Lang {
 }
 
 impl Formatting {
-    fn flattened(table: &mut TableHelper<'_>) -> Self {
+    fn flattened(table: &mut Object) -> Self {
         Self {
             indent: table.optional("indent"),
             max_line_size: table.optional("max_line_size"),
@@ -41,101 +35,100 @@ impl Formatting {
     }
 }
 
-impl<'de> Deserialize<'de> for Group {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        let span = value.span;
-        let err = |found| {
-            expected(
-                "a table or an array of two items with [opening, closing] delimiters",
-                found,
-                span,
-            )
-        };
+impl Deserialize for Group {
+    fn deserialize(value: Node) -> Result<Self> {
+        let span = *value.span();
 
-        match value.take() {
-            ValueInner::Array(array) => {
-                let [opening, closing] =
-                    array.try_into().map_err(ValueInner::Array).map_err(err)?;
+        value
+            .any_of()
+            .array(|array| {
+                let [opening, closing] = array.try_into().map_err(|array: Vec<_>| {
+                    yaml::Errors::unexpected_type(
+                        span,
+                        "an object or an array of two items ([opening, closing] delimiters)",
+                        format_args!("array of size {}", array.len()),
+                    )
+                })?;
 
                 Ok(Self {
-                    opening: Punct::deserialize(&mut { opening })?,
-                    closing: Punct::deserialize(&mut { closing })?,
+                    opening: Punct::deserialize(opening)?,
+                    closing: Punct::deserialize(closing)?,
                     break_style: None,
                 })
-            }
-            ValueInner::Table(map) => table((map, value.span), |table| Self {
-                opening: table.required("opening").unwrap_or_default(),
-                closing: table.required("closing").unwrap_or_default(),
-                break_style: table
-                    .optional::<TomlBreakStyle>("break_style")
+            })
+            .object(|obj| Self {
+                opening: obj.required("opening"),
+                closing: obj.required("closing"),
+                break_style: obj
+                    .optional::<YamlBreakStyle>("break_style")
                     .map(|style| style.0),
-            }),
-            other => Err(err(other).into()),
-        }
+            })
+            .finish()
     }
 }
 
-impl<'de> Deserialize<'de> for Punct {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        match value.take() {
-            ValueInner::String(symbol) => Ok(Self {
-                symbol: symbol.into_owned(),
-                leading_space: None,
-                trailing_space: None,
-            }),
-            ValueInner::Table(map) => table((map, value.span), |table| Self {
-                symbol: table.required("symbol").unwrap_or_default(),
-                leading_space: table.optional("leading_space"),
-                trailing_space: table.optional("trailing_space"),
-            }),
-            other => Err(expected("a string or table", other, value.span).into()),
-        }
+impl Deserialize for Punct {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .any_of()
+            .string(|symbol| {
+                Ok(Self {
+                    symbol,
+                    leading_space: None,
+                    trailing_space: None,
+                })
+            })
+            .object(|obj| Self {
+                symbol: obj.required("symbol"),
+                leading_space: obj.optional("leading_space"),
+                trailing_space: obj.optional("trailing_space"),
+            })
+            .finish()
     }
 }
 
-impl<'de> Deserialize<'de> for Space {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        match value.take() {
-            ValueInner::Integer(int) => Ok(Self {
-                size: Some(integer(int, value.span)?),
-                breakable: None,
-            }),
-            ValueInner::Table(map) => table((map, value.span), |table| Self {
-                size: table.optional("size"),
-                breakable: table.optional("breakable"),
-            }),
-            other => Err(expected(
-                "an integer meaning the number of spaces (size) or table",
-                other,
-                value.span,
-            )
-            .into()),
-        }
+impl Deserialize for Space {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .any_of()
+            .usize(|size| {
+                Ok(Self {
+                    size: Some(size),
+                    breakable: None,
+                })
+            })
+            .object(|obj| Self {
+                size: obj.optional("size"),
+                breakable: obj.optional("breakable"),
+            })
+            .finish()
     }
 }
 
-utils::foreign_enum_deser! {
-    struct TomlBreakStyle: BreakStyle {
+struct YamlBreakStyle(BreakStyle);
+
+yaml::impl_deserialize_for_foreign_enum! {
+    YamlBreakStyle(BreakStyle {
         Consistent => "consistent",
         Compact => "compact",
-    }
+    })
 }
 
-impl<'de> Deserialize<'de> for Quote {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        table(value, |table| Self {
-            opening: table.required("opening").unwrap_or_default(),
-            closing: table.required("closing").unwrap_or_default(),
-            escapes: table.optional("escapes"),
+impl Deserialize for Quote {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.object(|obj| Self {
+            opening: obj.required("opening"),
+            closing: obj.required("closing"),
+            escapes: obj.optional("escapes"),
         })
     }
 }
 
-impl<'de> Deserialize<'de> for Escape {
-    fn deserialize(value: &mut Value<'de>) -> DeserResult<Self> {
-        table(value, |table| Self {
-            escaped: table.required("escaped").unwrap_or_default(),
-            unescaped: table.required("unescaped").unwrap_or_default(),
+impl Deserialize for Escape {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.object(|obj| Self {
+            escaped: obj.required("escaped"),
+            unescaped: obj.required("unescaped"),
         })
     }
 }

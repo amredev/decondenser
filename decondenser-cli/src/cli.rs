@@ -8,29 +8,26 @@ use std::path::PathBuf;
 fn cli() -> clap::Command {
     clap::Command::new("decondenser")
         .about(
-            "Pretty-print any text based on brackets nesting. \
-            More docs: https://decondenser.dev",
+            "decondenser pretty-prints any text based on brackets nesting\n\
+            docs: https://decondenser.dev",
         )
         .long_about(None)
         .version(env!("CARGO_PKG_VERSION"))
         .styles(crate::styles::CLI_STYLES)
-        .arg(arg!(--input <INPUT> r#"Specify a file path or "-" for stdin"#).default_value("-"))
-        .arg(arg!(--output <OUTPUT> r#"Specify a file path or "-" for stdout"#).default_value("-"))
+        .arg(arg!(--input <INPUT> "file path or - for stdin").default_value("-"))
+        .arg(arg!(--output <OUTPUT> "file path or - for stdout").default_value("-"))
         .arg(
             arg!(
                 --config <CONFIG>
-                "Path to the config file. By default, will search for a file named \
-                \"decondenser.toml\" in the current and parent directories."
+                "path to the config file [default: decondenser.yml in this or parent directories]"
             )
             .value_parser(value_parser!(PathBuf))
-            .required(false)
-            .default_value("decondenser.toml"),
+            .required(false),
         )
         .arg(
             arg!(
                 --lang <LANG>
-                "Language profile to use. Can be either a built-in \
-                language or a custom one defined in the config file."
+                "language profile; either a built-in or custom language defined in the config"
             )
             .default_value("generic"),
         )

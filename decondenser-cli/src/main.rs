@@ -13,6 +13,8 @@ use error::{Error, Result};
 use std::process::ExitCode;
 
 type Files = SimpleFiles<String, String>;
+
+type Label = codespan_reporting::diagnostic::Label<usize>;
 type Diagnostic = codespan_reporting::diagnostic::Diagnostic<usize>;
 
 fn main() -> ExitCode {
