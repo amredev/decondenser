@@ -57,7 +57,15 @@ impl<T> SlidingDeque<T> {
         self.data.pop_back()
     }
 
+    pub(super) fn back(&self) -> Option<&T> {
+        self.data.back()
+    }
+
     pub(super) fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         self.data.get_mut(index.checked_sub(self.basis)?)
+    }
+
+    pub(super) fn get(&self, index: usize) -> Option<&T> {
+        self.data.get(index.checked_sub(self.basis)?)
     }
 }

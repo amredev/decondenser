@@ -29,5 +29,5 @@ unstable = []
 [dependencies]
 
 [dev-dependencies]
-toml_edit     = { workspace = true }
+toml_edit     = { workspace = true, features = ["parse", "display"] }
 unicode-width = { workspace = true }

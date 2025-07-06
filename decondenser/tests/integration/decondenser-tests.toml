@@ -23,6 +23,7 @@ Test { key1: "value1", "key2": "value2" },
 
 ["simple JSON"]
 max_line_size = 20
+no_break_size = 15
 
 input = """
 { "key1": "value1", "key2": [{ "key3": 123 }, { "key4": 4 }] }
@@ -31,7 +32,9 @@ output = """
  {
     "key1": "value1",
     "key2": [
-        { "key3": 123 },
+        {
+            "key3": 123
+        },
         { "key4": 4 }
     ]
 }"""

@@ -49,7 +49,7 @@
 
         // Use a system-wide target directory dedicated for rust-analyzer.
         // This way RA never blocks builds by locking the local target directory.
-        "rust-analyzer.cargo.targetDir": "/home/amredev/rust-analyzer-target",
+        "rust-analyzer.cargo.targetDir": "/home/amredev/rust-analyzer-cache",
 
         "[javascript][typescript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"

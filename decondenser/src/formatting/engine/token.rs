@@ -10,12 +10,15 @@ pub(super) enum Token<'a> {
     Begin {
         /// Calculated as the distance to the next [`Token::Space`] that follows
         /// the paired [`Token::End`] on the same level of nesting or EOF.
-        next_space_distance: Measurement,
+        next_bsp_distance: Measurement,
         break_style: BreakStyle,
     },
 
     /// Raw text that should be printed as-is.
     Raw(MeasuredStr<'a>),
+
+    /// Unconditional newlines. Contains the number of newlines to print.
+    Newline(usize),
 
     /// "Breakable space" - a space can be turned into a line break if the line
     /// gets too long.
@@ -23,7 +26,7 @@ pub(super) enum Token<'a> {
         /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
         /// all tokens until the next [`Token::Space`] on the same level of nesting
         /// or EOF.
-        next_space_distance: Measurement,
+        next_bsp_distance: Measurement,
 
         /// The number of space characters to print if this token is not turned into
         /// a line break.
@@ -117,16 +120,17 @@ impl fmt::Debug for Token<'_> {
                 "{:?}{WHITE}{content:?}",
                 Size::Fixed(content.visual_size())
             ),
+            Self::Newline(size) => write!(f, "{BLACK}  - {WHITE}Newline({size}){RESET}"),
             Self::Bsp {
                 size,
-                next_space_distance,
+                next_bsp_distance: next_space_distance,
             } => {
                 write!(f, "{next_space_distance:?}{GREEN}{BOLD}Bsp{NO_BOLD} {size}")
             }
             Self::Nbsp(size) => write!(f, "{:?}{WHITE}Nbsp", Size::Fixed(*size)),
             Self::Begin {
                 break_style,
-                next_space_distance,
+                next_bsp_distance: next_space_distance,
             } => {
                 write!(
                     f,

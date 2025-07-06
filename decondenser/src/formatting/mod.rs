@@ -133,12 +133,9 @@ impl<'input> FormattingCtx<'_, 'input> {
 
     fn skip_space(&mut self) {
         while let Some(next) = self.tokens.clone().next() {
-            match next {
-                TokenTree::Space(_) => {}
-                TokenTree::NewLine(_) if !self.config.preserve_newlines => {}
-                _ => return,
+            if !matches!(next, TokenTree::Space(_) | TokenTree::NewLine(_)) {
+                return;
             }
-
             self.tokens.next();
         }
     }

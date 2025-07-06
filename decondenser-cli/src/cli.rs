@@ -68,7 +68,7 @@ fn read_input(input: &str) -> Result<String> {
     let mut content = String::new();
     std::io::stdin()
         .read_to_string(&mut content)
-        .with_context(|| "Failed to read from stdin")?;
+        .context("Failed to read from stdin")?;
 
     Ok(content)
 }
