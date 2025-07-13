@@ -1,21 +1,16 @@
-mod ast;
 mod cursor;
+mod token_tree;
 
-pub(crate) use ast::*;
+pub(crate) use token_tree::*;
 
 use crate::{Decondenser, config};
 use cursor::Cursor;
 use std::mem;
 
-pub(crate) struct ParseParams<'a> {
-    pub(crate) input: &'a str,
-    pub(crate) config: &'a Decondenser,
-}
-
-pub(crate) fn parse<'a>(params: &ParseParams<'a>) -> Vec<AstNode<'a>> {
+pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTree<'a>> {
     let mut lexer = Parser {
-        config: params.config,
-        cursor: Cursor::new(params.input),
+        config,
+        cursor: Cursor::new(input),
         output: Vec::new(),
     };
     lexer.parse(None);
@@ -25,16 +20,26 @@ pub(crate) fn parse<'a>(params: &ParseParams<'a>) -> Vec<AstNode<'a>> {
 struct Parser<'a> {
     config: &'a Decondenser,
     cursor: Cursor<'a>,
-    output: Vec<AstNode<'a>>,
+    output: Vec<TokenTree<'a>>,
 }
 
 impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
-            if char.is_whitespace() {
-                if !matches!(self.output.last(), Some(AstNode::Space { .. })) {
+            if char == '\n' {
+                if !matches!(self.output.last(), Some(TokenTree::NewLine { .. })) {
                     let start = self.cursor.byte_offset();
-                    self.output.push(AstNode::Space { start });
+                    self.output.push(TokenTree::NewLine { start });
+                }
+
+                self.cursor.next();
+                continue;
+            }
+
+            if char.is_whitespace() {
+                if !matches!(self.output.last(), Some(TokenTree::Space { .. })) {
+                    let start = self.cursor.byte_offset();
+                    self.output.push(TokenTree::Space { start });
                 }
 
                 self.cursor.next();
@@ -47,7 +52,7 @@ impl<'a> Parser<'a> {
 
             let group = self.config.groups.iter().find_map(|group_cfg| {
                 Some((
-                    self.cursor.strip_prefix(&group_cfg.opening.content)?,
+                    self.cursor.strip_prefix(&group_cfg.opening.symbol)?,
                     group_cfg,
                 ))
             });
@@ -70,16 +75,16 @@ impl<'a> Parser<'a> {
                 .config
                 .puncts
                 .iter()
-                .find_map(|punct| Some((punct, self.cursor.strip_prefix(&punct.content)?)));
+                .find_map(|punct| Some((punct, self.cursor.strip_prefix(&punct.symbol)?)));
 
             if let Some((config, start)) = punct {
-                self.output.push(AstNode::Punct(Punct { start, config }));
+                self.output.push(TokenTree::Punct(Punct { start, config }));
                 continue;
             }
 
-            if !matches!(self.output.last(), Some(AstNode::Raw { .. })) {
+            if !matches!(self.output.last(), Some(TokenTree::Raw { .. })) {
                 let start = self.cursor.byte_offset();
-                self.output.push(AstNode::Raw { start });
+                self.output.push(TokenTree::Raw { start });
             }
 
             self.cursor.next();
@@ -91,7 +96,7 @@ impl<'a> Parser<'a> {
     fn parse_group(&mut self, opening: usize, config: &'a config::Group) {
         let prev = mem::take(&mut self.output);
 
-        let closing = self.parse(Some(&config.closing.content));
+        let closing = self.parse(Some(&config.closing.symbol));
 
         let group = Group {
             opening,
@@ -100,7 +105,7 @@ impl<'a> Parser<'a> {
             config,
         };
 
-        self.output.push(AstNode::Group(group));
+        self.output.push(TokenTree::Group(group));
     }
 
     fn parse_quoted(&mut self, opening: usize, config: &'a config::Quote) {
@@ -138,6 +143,6 @@ impl<'a> Parser<'a> {
             config,
         };
 
-        self.output.push(AstNode::Quoted(quoted));
+        self.output.push(TokenTree::Quoted(quoted));
     }
 }

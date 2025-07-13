@@ -6,7 +6,7 @@ use std::collections::{VecDeque, vec_deque};
 /// A sliding deque is almost exactly the same as a regular [`VecDeque`] but if
 /// you pop an element from the front of it, then the remaining elements will
 /// stay at their original indices. If you pop several times from the front and
-/// push some elements to the back the queue will effectively "slide" to the
+/// push some elements to the back, the queue will effectively "slide" to the
 /// right on the infinite axis of indices.
 pub(super) struct SlidingDeque<T> {
     data: VecDeque<T>,
@@ -51,10 +51,6 @@ impl<T> SlidingDeque<T> {
 
     pub(super) fn pop_front(&mut self) -> Option<T> {
         self.data.pop_front().inspect(|_| self.basis += 1)
-    }
-
-    pub(super) fn pop_back(&mut self) -> Option<T> {
-        self.data.pop_back()
     }
 
     pub(super) fn get_mut(&mut self, index: usize) -> Option<&mut T> {

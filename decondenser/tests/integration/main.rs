@@ -6,6 +6,11 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::str::FromStr;
 
+/// This test updates the `output` values in the `decondenser-tests.toml` file.
+/// It never fails, it only updates the file. However, on CI we make sure that
+/// the `decondenser-tests.toml` file is fresh by checking if it changes after
+/// the test run. This way we can observe the changes to the output values in PR
+/// diffs and have them automatically updated via `scripts/update-tests.sh`.
 #[test]
 fn snapshot_tests() {
     let tests_file = PathBuf::from_iter([
@@ -17,8 +22,20 @@ fn snapshot_tests() {
     let tests = std::fs::read_to_string(&tests_file).unwrap();
 
     let mut tests = toml_edit::DocumentMut::from_str(&tests).unwrap();
+    let tests_table = tests.as_table_mut();
 
-    for (_test_name, test) in tests.as_table_mut().iter_mut() {
+    let solo_test = tests_table
+        .iter_mut()
+        .find(|(_, test)| test.get("solo").is_some());
+
+    let tests_to_run = if let Some(solo_test) = solo_test {
+        eprintln!("Running solo test: {}", solo_test.0);
+        vec![solo_test]
+    } else {
+        tests_table.iter_mut().collect()
+    };
+
+    for (_test_name, test) in tests_to_run {
         let test = test.as_table_mut().unwrap();
 
         let input = test["input"].as_str().unwrap();

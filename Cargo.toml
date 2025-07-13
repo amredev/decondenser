@@ -9,8 +9,18 @@ license    = "Apache-2.0"
 repository = "https://github.com/amredev/decondenser"
 
 [workspace.dependencies]
-decondenser   = { path = "decondenser" }
-unicode-width = { version = "0.2.1", default-features = false }
+# crates.io
+anyhow             = "1.0"
+clap               = { version = "4.5", default-features = false }
+codespan-reporting = { version = "0.12", default-features = false }
+hashlink           = "0.10"
+marked-yaml        = "0.8"
+toml_edit          = { version = "0.22", default-features = false }
+unicode-width      = { version = "0.2.1", default-features = false }
+yaml-rust2         = "0.10"
+
+# path
+decondenser = { path = "decondenser" }
 
 [workspace.lints.clippy]
 # `map_or` and `map_or_else` are less readable than `map` followed
@@ -36,6 +46,17 @@ equatable_if_let = "allow"
 # This lint has too much false positives. For example this one:
 # https://github.com/rust-lang/rust-clippy/issues/15142
 option_if_let_else = "allow"
+
+# Booleans can still represent independent state. We don't need to replace them
+# with any kind of state machine especially in clap arg structs.
+struct_excessive_bools = "allow"
+
+# Too subjective. For exmaple, the type `&[(&str, fn() -> Decondenser)]` seems
+# simple enough to be allowed.
+type_complexity = "allow"
+
+# Too subjective. A long function is not always a bad function.
+cognitive_complexity = "allow"
 
 # Turn on lints that are allow by default in `clippy`.
 #
@@ -95,7 +116,6 @@ manual_let_else                   = "warn"
 manual_ok_or                      = "warn"
 many_single_char_names            = "warn"
 map_flatten                       = "warn"
-match_on_vec_items                = "warn"
 match_wild_err_arm                = "warn"
 maybe_infinite_iter               = "warn"
 mixed_read_write_in_expression    = "warn"
@@ -182,7 +202,6 @@ unexpected_cfgs                = "warn"
 unit_bindings                  = "warn"
 unnameable_types               = "warn"
 unreachable_pub                = "warn"
-unsafe_code                    = "warn"
 unstable_features              = "warn"
 unused_extern_crates           = "warn"
 unused_import_braces           = "warn"
