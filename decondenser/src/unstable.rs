@@ -7,8 +7,8 @@ pub struct Sealed;
 #[cfg(feature = "unstable")]
 impl super::Decondenser {
     /// Display the layout using special characters in the output:
-    /// - `«»` - groups with [`BreakStyle::Consistent`]
-    /// - `‹›` - groups with [`BreakStyle::Compact`]
+    /// - `«»` - groups with [`crate::BreakStyle::Consistent`]
+    /// - `‹›` - groups with [`crate::BreakStyle::Compact`]
     pub fn debug_layout(mut self, value: bool) -> Self {
         self.debug_layout = value;
         self

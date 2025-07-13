@@ -185,8 +185,6 @@ impl<'a> NormalizedFormatter<'a> {
     }
 
     fn print_measured_tokens(&mut self) {
-        dbg!(&self);
-
         debug_assert_ne!(self.tokens.deque.len(), 0);
 
         while let Some(&token) = self.tokens.deque.front() {
