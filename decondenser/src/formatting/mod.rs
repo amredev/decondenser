@@ -23,7 +23,7 @@ impl crate::Decondenser {
         .format();
 
         fmt.end();
-        fmt.eof()
+        fmt.eoi()
     }
 }
 
@@ -52,15 +52,15 @@ impl<'input> FormattingCtx<'_, 'input> {
                             // line/output, so skip this space.
                         }
                         _ => {
-                            self.fmt.nbsp(1);
+                            self.fmt.space(1);
                         }
                     }
                 }
                 &TokenTree::NewLine(count) => {
                     if self.config.preserve_newlines {
-                        self.fmt.newline(count.clamp(1, 2));
+                        self.fmt.hard_break(count.clamp(1, 2));
                     } else {
-                        self.fmt.nbsp(1);
+                        self.fmt.space(1);
                     }
                     self.skip_space();
                 }
@@ -163,9 +163,9 @@ impl<'input> FormattingCtx<'_, 'input> {
         let size = space.size.expect("TODO: handle preserving spaces");
 
         if space.breakable {
-            self.fmt.bsp(size);
-        } else {
-            self.fmt.nbsp(size);
+            self.fmt.soft_break();
         }
+
+        self.fmt.space(size);
     }
 }

@@ -29,7 +29,7 @@ input = """
 { "key1": "value1", "key2": [{ "key3": 123 }, { "key4": 4 }] }
 """
 output = """
- {
+{
     "key1": "value1",
     "key2": [
         {
@@ -48,7 +48,7 @@ input = """
 {"key": "val1\tval2"}
 """
 output = """
- { "key": "\\n\\r\\t" } { "key": "val1
+{ "key": "\\n\\r\\t" } { "key": "val1
 val2" } { "key": "val1\rval2" } {
     "key": "val1\tval2"
 }"""
@@ -58,7 +58,7 @@ input = '''
 {\n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
 '''
 output = '''
- {
+{
     \n \"account\": \"111111111111\",\n \"detail\": {},\n \"detail-type\": \"Scheduled Event\",\n \"id\": \"1d09b4ba-e14e-bc85-21e8-df3e21713a29\",\n \"region\": \"region\",\n \"resources\": [\n \"arn:partition:events:region:111111111111:rule/scheduler-plan-evaluation-schedule\"\n ],\n \"source\": \"aws.events\",\n \"time\": \"2025-05-28T15:12:00Z\",\n \"version\": \"0\"\n}
 '''
 

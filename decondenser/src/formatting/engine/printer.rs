@@ -1,8 +1,35 @@
-use super::Size;
 use super::measured_str::MeasuredStr;
+use super::token::Size;
 use crate::BreakStyle;
 use crate::utils::debug_panic;
 use std::{cmp, iter};
+
+#[derive(Debug)]
+pub(super) struct Printer<'a> {
+    /// Output string being built
+    output: String,
+
+    /// Spare budget of size left on the current line.
+    ///
+    /// Can be zero if the last printed token was >= in size than the
+    /// [`PrinterConfig::line_size`] limit, and all possible breaks on the left
+    /// side of that could be done were already done. I.e. - there is no way to
+    /// fit the token into the limit without breaking somewhere in the middle of
+    /// some token, which is not allowed.
+    line_size_budget: usize,
+
+    /// Level of indentation for the current line
+    indent_level: usize,
+
+    /// Stack of groups-in-progress nested one inside another
+    groups_stack: Vec<Group>,
+
+    spaces: Spaces,
+
+    /// Constant values intentionally separated out of the struct to group them
+    /// together for readability. Everything else in this struct is mutable.
+    config: PrinterConfig<'a>,
+}
 
 #[derive(Debug, Clone, Copy)]
 enum Group {
@@ -35,42 +62,9 @@ pub(super) struct PrinterConfig<'a> {
 }
 
 #[derive(Debug)]
-enum Blanks {
-    Spaces(usize),
-    Breaks(usize),
-}
-
-#[derive(Debug)]
-pub(super) struct Printer<'a> {
-    /// Output string being built
-    output: String,
-
-    /// Spare budget of size left on the current line.
-    ///
-    /// Can be zero if the last printed token was >= in size than the
-    /// [`PrinterConfig::line_size`] limit, and all possible breaks on the left
-    /// side of that could be done were already done. I.e. - there is no way to
-    /// fit the token into the limit without breaking somewhere in the middle of
-    /// some token, which is not allowed.
-    line_size_budget: usize,
-
-    /// Level of indentation for the current line
-    indent_level: usize,
-
-    /// Number of space or newline characters accumulated until later.
-    ///
-    /// By not printing the these eagerly we avoid extra trailing space in the
-    /// output, and we also squash consecutive spaces together. For example, if
-    /// there is a sequence of 3, 2, 4, 1 spaces, we will print only 4 spaces
-    /// (i.e. the longest sequence of spaces requested).
-    pending_blanks: Blanks,
-
-    /// Stack of groups-in-progress nested one inside another
-    groups_stack: Vec<Group>,
-
-    /// Constant values intentionally separated out of the struct to group them
-    /// together for readability. Everything else in this struct is mutable.
-    config: PrinterConfig<'a>,
+enum Spaces {
+    Skip,
+    Buffered(usize),
 }
 
 impl<'a> Printer<'a> {
@@ -79,14 +73,16 @@ impl<'a> Printer<'a> {
             output: String::new(),
             line_size_budget: cmp::max(config.max_line_size, config.no_break_size),
             indent_level: 0,
-            pending_blanks: Blanks::Spaces(0),
             groups_stack: Vec::new(),
+            spaces: Spaces::Skip,
             config,
         }
     }
 
     fn decrease_line_size_budget(&mut self, size: usize) {
+        let budget = self.line_size_budget;
         self.line_size_budget = self.line_size_budget.saturating_sub(size);
+        eprint!("Budget: {budget:>2} -> {:>2}", self.line_size_budget);
     }
 
     pub(super) fn begin(&mut self, break_style: BreakStyle, next_space_distance: Size) {
@@ -154,60 +150,16 @@ impl<'a> Printer<'a> {
     }
 
     /// Print the given number of line breaks
-    pub(super) fn newline(&mut self, size: usize) {
+    pub(super) fn hard_break(&mut self, size: usize) {
         if self.config.debug_layout {
             self.output.push_str("ₙₗ");
         }
 
-        let size = match self.pending_blanks {
-            // Discard the pending spaces - we don't need them anymore, because
-            // we are going to print a newline.
-            Blanks::Spaces(_) => size,
-            Blanks::Breaks(breaks) => cmp::max(breaks, size),
-        };
-
-        self.pending_blanks = Blanks::Breaks(size);
-        // self.line_size_budget = 0;
-    }
-
-    pub(super) fn nbsp(&mut self, size: usize) {
-        if self.config.debug_layout {
-            self.output.push('·');
+        // No need for trailing/leading spaces adjacent to line breaks
+        if let Spaces::Buffered(pending_spaces) = self.spaces {
+            self.line_size_budget = self.line_size_budget.saturating_sub(pending_spaces);
+            self.spaces = Spaces::Skip;
         }
-
-        let Blanks::Spaces(pending_spaces) = &mut self.pending_blanks else {
-            // If we have pending breaks, we don't need to print any spaces
-            // to avoid extra leading spaces in the output.
-            return;
-        };
-
-        let Some(diff) = size.checked_sub(*pending_spaces) else {
-            return;
-        };
-
-        *pending_spaces = size;
-        self.decrease_line_size_budget(diff);
-    }
-
-    pub(super) fn bsp(&mut self, size: usize, next_space_distance: Size) {
-        if self.next_token_sequence_fits(next_space_distance) {
-            self.nbsp(size);
-        } else {
-            self.newline(1);
-        }
-    }
-
-    fn print_pending_blanks(&mut self) {
-        let blanks = std::mem::replace(&mut self.pending_blanks, Blanks::Spaces(0));
-
-        let size = match blanks {
-            Blanks::Spaces(0) | Blanks::Breaks(0) => return,
-            Blanks::Spaces(size) => {
-                self.output.extend(iter::repeat_n(' ', size));
-                return;
-            }
-            Blanks::Breaks(size) => size,
-        };
 
         self.output.extend(iter::repeat_n('\n', size));
         self.output.extend(iter::repeat_n(
@@ -223,9 +175,33 @@ impl<'a> Printer<'a> {
         );
     }
 
+    pub(super) fn space(&mut self, size: usize) {
+        if self.config.debug_layout {
+            self.output.push('·');
+        }
+
+        if !matches!(self.spaces, Spaces::Skip) {
+            self.spaces = Spaces::Buffered(size);
+            self.decrease_line_size_budget(size);
+            eprintln!(" via spaces {size}");
+        }
+    }
+
+    pub(super) fn soft_break(&mut self, next_space_distance: Size) {
+        if !self.next_token_sequence_fits(next_space_distance) {
+            self.hard_break(1);
+        }
+    }
+
     pub(super) fn raw(&mut self, str: MeasuredStr<'_>) {
-        self.print_pending_blanks();
+        if let Spaces::Buffered(pending_spaces) = self.spaces {
+            self.output.extend(iter::repeat_n(' ', pending_spaces));
+        }
+
+        self.spaces = Spaces::Buffered(0);
+
         self.decrease_line_size_budget(str.visual_size());
+        eprintln!(" via str {str:?}");
         self.output.push_str(&str);
     }
 
@@ -233,7 +209,7 @@ impl<'a> Printer<'a> {
         self.line_size_budget
     }
 
-    pub(super) fn eof(self) -> String {
+    pub(super) fn finish(self) -> String {
         self.output
     }
 }

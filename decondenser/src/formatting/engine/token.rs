@@ -10,32 +10,25 @@ pub(super) enum Token<'a> {
     Begin {
         /// Calculated as the distance to the next [`Token::Space`] that follows
         /// the paired [`Token::End`] on the same level of nesting or EOF.
-        next_bsp_distance: Measurement,
+        next_break_distance: Measurement,
         break_style: BreakStyle,
     },
 
     /// Raw text that should be printed as-is.
     Raw(MeasuredStr<'a>),
 
-    /// Unconditional newlines. Contains the number of newlines to print.
-    Newline(usize),
-
-    /// "Breakable space" - a space can be turned into a line break if the line
-    /// gets too long.
-    Bsp {
+    /// A point in text where a line break can be inserted if the content does
+    /// not fit on a single line.
+    SoftBreak {
         /// Calculated as the this token's [`Space::size`] plus the sum of sizes of
         /// all tokens until the next [`Token::Space`] on the same level of nesting
         /// or EOF.
-        next_bsp_distance: Measurement,
-
-        /// The number of space characters to print if this token is not turned into
-        /// a line break.
-        size: usize,
+        next_break_distance: Measurement,
     },
 
-    /// "Non-breakable space" - always stays static and doesn't turn into a
-    /// line break. Contains the number of space characters to print.
-    Nbsp(usize),
+    /// A sequence of the given number of whitespace characters. Will be ignored
+    /// if it would be printed adjacently to a line break.
+    Space(usize),
 
     /// Change the indent of the following content by the given number of
     /// levels. Applied only if the group is broken into multiple lines.
@@ -120,21 +113,19 @@ impl fmt::Debug for Token<'_> {
                 "{:?}{WHITE}{content:?}",
                 Size::Fixed(content.visual_size())
             ),
-            Self::Newline(size) => write!(f, "{BLACK}  - {WHITE}Newline({size}){RESET}"),
-            Self::Bsp {
-                size,
-                next_bsp_distance: next_space_distance,
+            Self::SoftBreak {
+                next_break_distance,
             } => {
-                write!(f, "{next_space_distance:?}{GREEN}{BOLD}Bsp{NO_BOLD} {size}")
+                write!(f, "{next_break_distance:?}{GREEN}{BOLD}SoftBreak{NO_BOLD}")
             }
-            Self::Nbsp(size) => write!(f, "{:?}{WHITE}Nbsp", Size::Fixed(*size)),
+            Self::Space(size) => write!(f, "{:?}{WHITE}Space", Size::Fixed(*size)),
             Self::Begin {
                 break_style,
-                next_bsp_distance: next_space_distance,
+                next_break_distance,
             } => {
                 write!(
                     f,
-                    "{next_space_distance:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}"
+                    "{next_break_distance:?}{YELLOW}{BOLD}Begin{NO_BOLD} {break_style:?}"
                 )
             }
             Self::Indent(diff) => write!(f, "{BLACK}  - Indent({diff})"),
