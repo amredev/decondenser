@@ -198,7 +198,7 @@ impl Decondenser {
     ///
     /// ```
     /// # use decondenser::Decondenser;
-    /// # let decondenser = Decondenser::new();
+    /// # let decondenser = Decondenser::empty();
     /// #
     /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
     /// ```
