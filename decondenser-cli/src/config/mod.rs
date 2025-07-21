@@ -3,7 +3,7 @@ mod into_core;
 
 use crate::{Files, Result};
 use anyhow::Context;
-use decondenser::BreakStyle;
+use decondenser::{BreakStyle, SoftBreak};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -48,9 +48,18 @@ struct Punct {
     trailing_space: Option<Space>,
 }
 
-struct Space {
-    size: Option<usize>,
-    breakable: Option<bool>,
+#[expect(
+    variant_size_differences,
+    reason = "the difference is still negligible"
+)]
+enum Space {
+    Preserving {
+        soft_break: Option<SoftBreak>,
+    },
+    Fixed {
+        size: usize,
+        soft_break: Option<bool>,
+    },
 }
 
 struct Quote {

@@ -5,12 +5,14 @@ mod ansi;
 mod config;
 mod formatting;
 mod parsing;
+mod space;
 mod str;
 mod unescape;
 mod unstable;
 mod utils;
 
 pub use self::config::*;
+pub use self::space::*;
 pub use str::IntoStr;
 
 use self::str::Str;
@@ -66,35 +68,30 @@ impl Decondenser {
     /// The default formatting is guaranteed to be stable across patch versions,
     /// but it can change between minor and major versions.
     pub fn generic() -> Self {
-        let breakable = |size| Space::fixed(size).breakable(true);
+        let group = |start, end| {
+            let space = PreservingSpace::new().soft_break(SoftBreak::Always);
+            Group::new(
+                Punct::new(start).trailing_space(space.clone()),
+                Punct::new(end).leading_space(space),
+            )
+        };
+
+        let punct = |symbol| {
+            Punct::new(symbol)
+                .trailing_space(PreservingSpace::new().soft_break(SoftBreak::WhenNonEmpty))
+        };
 
         Self::empty()
             .groups([
-                Group::new(
-                    Punct::new("(").trailing_space(breakable(0)),
-                    Punct::new(")").leading_space(breakable(0)),
-                ),
-                Group::new(
-                    Punct::new("[").trailing_space(breakable(0)),
-                    Punct::new("]").leading_space(breakable(0)),
-                ),
-                Group::new(
-                    Punct::new("{")
-                        .leading_space(1)
-                        .trailing_space(breakable(1)),
-                    Punct::new("}").leading_space(breakable(1)),
-                ),
+                group("(", ")"),
+                group("[", "]"),
+                group("{", "}"),
                 // Elixir bitstrings
-                Group::new(
-                    Punct::new("<<").trailing_space(breakable(0)),
-                    Punct::new(">>").leading_space(breakable(0)),
-                ),
+                group("<<", ">>"),
                 // Many languages use these for generic types/functions
-                Group::new(
-                    Punct::new("<").trailing_space(breakable(0)),
-                    Punct::new(">").leading_space(breakable(0)),
-                ),
+                group("<", ">"),
             ])
+            .puncts([punct(","), punct(";")])
             .quotes([
                 Quote::new("\"", "\"").escapes([
                     Escape::new("\\n", "\n"),
@@ -112,17 +109,6 @@ impl Decondenser {
                     Escape::new("\\\\", "\\"),
                     Escape::new("\\'", "'"),
                 ]),
-            ])
-            .puncts([
-                Punct::new(",").trailing_space(breakable(1)),
-                Punct::new(";").trailing_space(breakable(1)),
-                Punct::new(":").trailing_space(1),
-                Punct::new("=>").surrounding_space(1),
-                Punct::new("!==").surrounding_space(1),
-                Punct::new("===").surrounding_space(1),
-                Punct::new("!=").surrounding_space(1),
-                Punct::new("==").surrounding_space(1),
-                Punct::new("=").surrounding_space(1),
             ])
     }
 
@@ -145,8 +131,8 @@ impl Decondenser {
     /// String to used to make a single level of indentation.
     ///
     /// Defaults to 4 spaces.
-    pub fn indent(mut self, value: impl Spacing) -> Self {
-        self.indent = value.spacing(Sealed);
+    pub fn indent(mut self, value: impl Indent) -> Self {
+        self.indent = value.indent(Sealed);
         self
     }
 
@@ -182,7 +168,9 @@ impl Decondenser {
         self
     }
 
-    /// Keep line breaks from the input in the output
+    /// Keep line breaks from the input in the output.
+    ///
+    /// By default, newlines will be treated as regular spaces.
     pub fn preserve_newlines(mut self, value: bool) -> Self {
         self.preserve_newlines = value;
         self
@@ -229,5 +217,25 @@ impl Decondenser {
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
         self
+    }
+}
+
+/// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
+/// also the special case of a [`usize`] that represents a number of whitespace
+/// characters to use.
+pub trait Indent {
+    /// Sealed method. Can't be called outside of this crate.
+    fn indent(self, _: Sealed) -> Str;
+}
+
+impl<T: IntoStr> Indent for T {
+    fn indent(self, _: Sealed) -> Str {
+        Str::new(self)
+    }
+}
+
+impl Indent for usize {
+    fn indent(self, _: Sealed) -> Str {
+        Str::n_spaces(self)
     }
 }

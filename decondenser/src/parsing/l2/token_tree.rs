@@ -3,7 +3,7 @@ use std::fmt;
 
 pub(crate) enum TokenTree<'a> {
     Space(&'a str),
-    NewLine(usize),
+    Newline(usize),
     Raw(&'a str),
     Punct(&'a config::Punct),
     Group(Group<'a>),
@@ -14,7 +14,7 @@ impl fmt::Debug for TokenTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Space(text) => write!(f, "space {text:?}"),
-            Self::NewLine(count) => write!(f, "newline {count}"),
+            Self::Newline(count) => write!(f, "newline {count}"),
             Self::Raw(text) => write!(f, "raw {text:?}"),
             Self::Punct(punct) => write!(f, "punct {:?}", punct.symbol),
             Self::Group(group) => write!(f, "group {group:?}"),

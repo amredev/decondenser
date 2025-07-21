@@ -1,5 +1,5 @@
 use crate::str::{IntoStr, Str};
-use crate::unstable::Sealed;
+use crate::{PreservingSpace, Space};
 
 /// Describes a grouping of content delimited via opening and closing sequences
 /// (usually some kind of brackets).
@@ -112,7 +112,7 @@ impl Quote {
 pub struct Escape {
     pub(crate) escaped: Str,
 
-    #[expect(dead_code, reason = "TODO: immplement unescaping API")]
+    #[expect(dead_code, reason = "TODO: implement unescaping API")]
     pub(crate) unescaped: Str,
 }
 
@@ -143,19 +143,9 @@ impl Punct {
     pub fn new(symbol: impl IntoStr) -> Self {
         Self {
             symbol: Str::new(symbol),
-            leading_space: Space::fixed(0),
-            trailing_space: Space::fixed(0),
+            leading_space: PreservingSpace::new().into(),
+            trailing_space: PreservingSpace::new().into(),
         }
-    }
-
-    /// Defines both the leading and trailing space handling for this [`Punct`].
-    ///
-    /// By default no leading or trailing space is added.
-    #[must_use]
-    pub(crate) fn surrounding_space(mut self, value: impl Into<Space>) -> Self {
-        self.leading_space = value.into();
-        self.trailing_space = self.leading_space.clone();
-        self
     }
 
     /// Defines the logic leading space handling for this [`Punct`].
@@ -174,80 +164,5 @@ impl Punct {
     pub fn trailing_space(mut self, value: impl Into<Space>) -> Self {
         self.trailing_space = value.into();
         self
-    }
-}
-
-/// Defines the rules for inserting space characters and line breaks.
-#[derive(Debug, Clone)]
-pub struct Space {
-    pub(crate) size: Option<usize>,
-    pub(crate) breakable: bool,
-}
-
-impl Space {
-    /// Creates a [`Space`] that preserves the same number of spaces as in the
-    /// input.
-    ///
-    /// Make sure to explicitly enable [`Space::breakable`] if you want the
-    /// space to be considered for turning into a newline when the content does
-    /// not fit on a single line, otherwise the space will always stay static
-    /// and it'll never be turned into a line break.
-    #[must_use]
-    pub fn preserving() -> Self {
-        Self {
-            size: None,
-            breakable: false,
-        }
-    }
-
-    /// Creates a [`Space`] with the fixed number of whitespace characters.
-    ///
-    /// Make sure to explicitly enable [`Space::breakable`] if you want the
-    /// space to be considered for turning into a newline when the content does
-    /// not fit on a single line, otherwise the space will always stay static
-    /// and it'll never be turned into a line break.
-    #[must_use]
-    pub fn fixed(size: usize) -> Self {
-        Self {
-            size: Some(size),
-            breakable: false,
-        }
-    }
-
-    /// If `true`, the space will be considered for breaking into a newline if
-    /// the content does not fit on a single line. If `false`, the space will
-    /// never be turned into a line break.
-    ///
-    /// Default is `false`.
-    #[must_use]
-    pub fn breakable(mut self, value: bool) -> Self {
-        self.breakable = value;
-        self
-    }
-}
-
-impl From<usize> for Space {
-    fn from(value: usize) -> Self {
-        Self::fixed(value)
-    }
-}
-
-/// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
-/// also the special case of a [`usize`] that represents a number of whitespace
-/// characters to use.
-pub trait Spacing {
-    /// Sealed method. Can't be called outside of this crate.
-    fn spacing(self, _: Sealed) -> Str;
-}
-
-impl<T: IntoStr> Spacing for T {
-    fn spacing(self, _: Sealed) -> Str {
-        Str::new(self)
-    }
-}
-
-impl Spacing for usize {
-    fn spacing(self, _: Sealed) -> Str {
-        Str::n_spaces(self)
     }
 }

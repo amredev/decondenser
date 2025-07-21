@@ -31,7 +31,7 @@ pub(super) struct Printer<'a> {
     config: PrinterConfig<'a>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum Group {
     /// The group fits on the current line. The [`BreakStyle`] is stored in
     /// this variant solely for debugging purposes - to render the matching
@@ -80,9 +80,7 @@ impl<'a> Printer<'a> {
     }
 
     fn decrease_line_size_budget(&mut self, size: usize) {
-        let budget = self.line_size_budget;
         self.line_size_budget = self.line_size_budget.saturating_sub(size);
-        eprint!("Budget: {budget:>2} -> {:>2}", self.line_size_budget);
     }
 
     pub(super) fn begin(&mut self, break_style: BreakStyle, next_space_distance: Size) {
@@ -183,7 +181,6 @@ impl<'a> Printer<'a> {
         if !matches!(self.spaces, Spaces::Skip) {
             self.spaces = Spaces::Buffered(size);
             self.decrease_line_size_budget(size);
-            eprintln!(" via spaces {size}");
         }
     }
 
@@ -201,7 +198,6 @@ impl<'a> Printer<'a> {
         self.spaces = Spaces::Buffered(0);
 
         self.decrease_line_size_budget(str.visual_size());
-        eprintln!(" via str {str:?}");
         self.output.push_str(&str);
     }
 

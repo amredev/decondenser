@@ -1,8 +1,9 @@
 mod engine;
 
-use crate::BreakStyle;
 use crate::parsing;
 use crate::parsing::l2::TokenTree;
+use crate::space::SpaceKind;
+use crate::{BreakStyle, SoftBreak};
 use engine::{Formatter, MeasuredStr};
 
 impl crate::Decondenser {
@@ -18,7 +19,9 @@ impl crate::Decondenser {
         FormattingCtx {
             config: self,
             fmt: &mut fmt,
-            tokens: tokens.iter(),
+            tokens: TokensCursor {
+                tokens: tokens.iter(),
+            },
         }
         .format();
 
@@ -27,95 +30,30 @@ impl crate::Decondenser {
     }
 }
 
-struct FormattingCtx<'fmt, 'input> {
-    config: &'input crate::Decondenser,
-    fmt: &'fmt mut Formatter<'input>,
-    tokens: std::slice::Iter<'input, TokenTree<'input>>,
+struct FormattingCtx<'f, 'i> {
+    config: &'i crate::Decondenser,
+    fmt: &'f mut Formatter<'i>,
+    tokens: TokensCursor<'i>,
 }
 
-impl<'input> FormattingCtx<'_, 'input> {
+#[derive(Clone, Copy)]
+enum Blank<'i> {
+    Space(&'i str),
+    Newline(usize),
+}
+
+impl<'i> FormattingCtx<'_, 'i> {
     pub(crate) fn format(mut self) {
-        // Skip leading space if it exists
-        self.skip_space();
+        // Skip leading blanks if they exist
+        while self.tokens.optional_blank().is_some() {}
 
         while let Some(node) = self.tokens.next() {
             match node {
-                TokenTree::Space(_content) => {
-                    let next = self.tokens.clone().next();
-
-                    match next {
-                        Some(TokenTree::Punct(_) | TokenTree::Group(_) | TokenTree::NewLine(_))
-                        | None => {
-                            // Punct and Group delimiters define their own
-                            // leading whitespace, and we also don't want to
-                            // output trailing whitespace at the end of
-                            // line/output, so skip this space.
-                        }
-                        _ => {
-                            self.fmt.space(1);
-                        }
-                    }
-                }
-                &TokenTree::NewLine(count) => {
-                    if self.config.preserve_newlines {
-                        self.fmt.hard_break(count.clamp(1, 2));
-                    } else {
-                        self.fmt.space(1);
-                    }
-                    self.skip_space();
-                }
-                TokenTree::Raw(content) => {
-                    self.fmt.raw(self.measured_str(content));
-                }
-                TokenTree::Punct(punct) => {
-                    self.space(&punct.leading_space);
-                    self.fmt.raw(self.measured_str(&punct.symbol));
-
-                    if self.tokens.clone().next().is_none() {
-                        return;
-                    }
-
-                    self.trailing_space(&punct.trailing_space);
-                }
-                TokenTree::Group(group) => {
-                    let config = &group.config;
-
-                    self.fmt.begin(BreakStyle::Consistent);
-
-                    self.space(&config.opening.leading_space);
-                    self.fmt.raw(self.measured_str(&config.opening.symbol));
-                    self.space(&config.opening.trailing_space);
-
-                    let indent = config.opening.trailing_space.breakable
-                        || config.closing.leading_space.breakable;
-
-                    if indent {
-                        self.fmt.indent(1);
-                    }
-
-                    FormattingCtx {
-                        config: self.config,
-                        fmt: &mut *self.fmt,
-                        tokens: group.content.iter(),
-                    }
-                    .format();
-
-                    if indent {
-                        self.fmt.indent(-1);
-                    }
-
-                    if group.closed {
-                        if !group.content.is_empty() {
-                            self.space(&config.closing.leading_space);
-                        }
-                        self.fmt.raw(self.measured_str(&config.closing.symbol));
-                        self.space(&config.closing.trailing_space);
-
-                        self.skip_space();
-                    }
-
-                    self.fmt.end();
-                }
+                TokenTree::Space(space) => self.on_blank(Blank::Space(space)),
+                TokenTree::Newline(count) => self.on_blank(Blank::Newline(*count)),
+                TokenTree::Raw(content) => self.fmt.raw(self.measured_str(content)),
+                TokenTree::Punct(punct) => self.on_punct(None, punct),
+                TokenTree::Group(group) => self.on_group(None, group),
                 TokenTree::Quoted(quoted) => {
                     self.fmt.raw(self.measured_str(&quoted.config.opening));
 
@@ -131,12 +69,22 @@ impl<'input> FormattingCtx<'_, 'input> {
         }
     }
 
-    fn skip_space(&mut self) {
-        while let Some(next) = self.tokens.clone().next() {
-            if !matches!(next, TokenTree::Space(_) | TokenTree::NewLine(_)) {
-                return;
+    fn on_blank(&mut self, leading_blank: Blank<'i>) {
+        let Some(peeked) = self.tokens.peek() else {
+            // No need for trailing blanks
+            return;
+        };
+
+        match peeked.token {
+            TokenTree::Punct(punct) => {
+                peeked.consume();
+                self.on_punct(Some(leading_blank), punct);
             }
-            self.tokens.next();
+            TokenTree::Group(group) => {
+                peeked.consume();
+                self.on_group(Some(leading_blank), group);
+            }
+            _ => {}
         }
     }
 
@@ -144,28 +92,136 @@ impl<'input> FormattingCtx<'_, 'input> {
         MeasuredStr::new(str, self.config.visual_size)
     }
 
-    fn trailing_space(&mut self, space: &'input crate::Space) {
-        self.skip_space();
+    fn on_group(&mut self, leading_blank: Option<Blank<'i>>, group: &'i parsing::l2::Group<'i>) {
+        let config = &group.config;
 
-        let Some(next) = self.tokens.clone().next() else {
-            // Prevent trailing space at the end of the output
-            return;
+        self.fmt.begin(BreakStyle::Consistent);
+
+        let is_empty_group = group
+            .content
+            .iter()
+            .all(|token| matches!(token, TokenTree::Newline(_) | TokenTree::Space(_)));
+
+        // Trim blank-only groups to a single line always
+        let tokens = if is_empty_group {
+            [].iter()
+        } else {
+            group.content.iter()
         };
 
-        if let TokenTree::NewLine(_) = next {
-            return;
+        let mut content = FormattingCtx {
+            config: self.config,
+            fmt: &mut *self.fmt,
+            tokens: TokensCursor { tokens },
+        };
+
+        content.on_punct(leading_blank, &config.opening);
+        content.fmt.indent(1);
+        content.format();
+        self.fmt.indent(-1);
+
+        if group.closed {
+            let leading_blank = self.tokens.optional_blank().filter(|_| !is_empty_group);
+            self.on_punct(leading_blank, &config.closing);
         }
 
-        self.space(space);
+        self.fmt.end();
     }
 
-    fn space(&mut self, space: &'input crate::Space) {
-        let size = space.size.expect("TODO: handle preserving spaces");
+    fn on_punct(&mut self, leading_blank: Option<Blank<'i>>, punct: &'i crate::Punct) {
+        self.blank_near_punct(leading_blank, &punct.leading_space);
+        self.fmt.raw(self.measured_str(&punct.symbol));
 
-        if space.breakable {
-            self.fmt.soft_break();
+        let trailing_blank = self.tokens.optional_blank();
+        self.blank_near_punct(trailing_blank, &punct.trailing_space);
+    }
+
+    fn blank_near_punct(&mut self, input: Option<Blank<'i>>, config: &'i crate::Space) {
+        match input {
+            None => self.space_near_punct("", config),
+            Some(Blank::Space(space)) => self.space_near_punct(space, config),
+            Some(Blank::Newline(count)) => self.newline_near_punct(count, config),
         }
+    }
 
-        self.fmt.space(size);
+    fn newline_near_punct(&mut self, count: usize, config: &'i crate::Space) {
+        if self.config.preserve_newlines {
+            self.fmt.hard_break(std::cmp::min(count, 2));
+        } else {
+            self.space_near_punct(" ", config);
+        }
+    }
+
+    fn space_near_punct(&mut self, input: &str, config: &'i crate::Space) {
+        match &config.kind {
+            SpaceKind::Preserving(config) => {
+                let soft_break = match config.soft_break {
+                    Some(SoftBreak::Always) => true,
+                    Some(SoftBreak::WhenNonEmpty) => input.is_empty(),
+                    None => false,
+                };
+
+                if soft_break {
+                    self.fmt.soft_break();
+                }
+
+                self.fmt.space(input.len());
+            }
+            SpaceKind::Fixed(config) => {
+                if config.soft_break {
+                    self.fmt.soft_break();
+                }
+
+                self.fmt.space(config.size);
+            }
+        }
+    }
+}
+
+struct TokensCursor<'i> {
+    tokens: std::slice::Iter<'i, TokenTree<'i>>,
+}
+
+impl<'i> TokensCursor<'i> {
+    fn next(&mut self) -> Option<&'i TokenTree<'i>> {
+        self.tokens.next()
+    }
+    fn peek(&mut self) -> Option<Peeked<'_, 'i>> {
+        Peeked::new(&mut self.tokens)
+    }
+    fn optional_blank(&mut self) -> Option<Blank<'i>> {
+        self.peek()?.consume_blank()
+    }
+}
+
+struct Peeked<'t, 'i> {
+    token: &'i TokenTree<'i>,
+    tokens: &'t mut std::slice::Iter<'i, TokenTree<'i>>,
+}
+
+impl<'t, 'i> Peeked<'t, 'i> {
+    fn new(tokens: &'t mut std::slice::Iter<'i, TokenTree<'i>>) -> Option<Self> {
+        Some(Self {
+            token: tokens.next()?,
+            tokens,
+        })
+    }
+
+    fn consume(self) {
+        self.tokens.next();
+    }
+
+    fn consume_blank(self) -> Option<Blank<'i>> {
+        match self.token {
+            TokenTree::Space(space) => {
+                self.consume();
+                Some(Blank::Space(space))
+            }
+            TokenTree::Newline(count) => {
+                self.consume();
+                Some(Blank::Newline(*count))
+            }
+            _ => None,
+        }
     }
 }

@@ -3,19 +3,16 @@ use super::{NodeExt, Result};
 use crate::Diagnostic;
 use marked_yaml::Node;
 
-pub(crate) fn deserialize_enum<T>(
+pub(crate) fn deserialize_enum<const N: usize, T>(
     names: &'static [&'static str],
-    values: &[T],
+    values: [T; N],
     value: Node,
-) -> Result<T>
-where
-    T: Clone + Copy,
-{
+) -> Result<T> {
     let span = *value.span();
     let string = value.string()?;
     let value = names.iter().zip(values).find(|&(&name, _)| name == string);
 
-    if let Some((_, &value)) = value {
+    if let Some((_, value)) = value {
         return Ok(value);
     }
 
@@ -48,7 +45,7 @@ macro_rules! impl_deserialize_for_foreign_enum {
 
                 $crate::yaml::enums::deserialize_enum(
                     &[$($variant_str,)*],
-                    &[$($enum_name::$variant_ident,)*],
+                    [$($enum_name::$variant_ident,)*],
                     value,
                 )
                 .map(Self)
