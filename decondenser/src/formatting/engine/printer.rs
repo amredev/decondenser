@@ -1,6 +1,6 @@
 use super::measured_str::MeasuredStr;
 use super::token::Size;
-use crate::BreakStyle;
+use crate::formatting::BreakStyle;
 use crate::utils::debug_panic;
 use std::{cmp, iter};
 

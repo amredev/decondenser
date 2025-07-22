@@ -5,18 +5,21 @@ mod ansi;
 mod config;
 mod formatting;
 mod parsing;
+mod sealed;
 mod space;
 mod str;
 mod unescape;
-mod unstable;
 mod utils;
+
+#[cfg(feature = "unstable")]
+mod unstable;
 
 pub use self::config::*;
 pub use self::space::*;
 pub use str::IntoStr;
 
 use self::str::Str;
-use unstable::Sealed;
+use sealed::Sealed;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
@@ -69,7 +72,7 @@ impl Decondenser {
     /// but it can change between minor and major versions.
     pub fn generic() -> Self {
         let group = |start, end| {
-            let space = PreservingSpace::new().soft_break(SoftBreak::Always);
+            let space = Space::new().breakable(true);
             Group::new(
                 Punct::new(start).trailing_space(space.clone()),
                 Punct::new(end).leading_space(space),
@@ -77,8 +80,7 @@ impl Decondenser {
         };
 
         let punct = |symbol| {
-            Punct::new(symbol)
-                .trailing_space(PreservingSpace::new().soft_break(SoftBreak::WhenNonEmpty))
+            Punct::new(symbol).trailing_space(Space::new().breakable(SpaceFilter::min_size(1)))
         };
 
         Self::empty()
@@ -131,8 +133,8 @@ impl Decondenser {
     /// String to used to make a single level of indentation.
     ///
     /// Defaults to 4 spaces.
-    pub fn indent(mut self, value: impl Indent) -> Self {
-        self.indent = value.indent(Sealed);
+    pub fn indent(mut self, value: impl IntoIndent) -> Self {
+        self.indent = value.into_indent(Sealed);
         self
     }
 
@@ -223,19 +225,19 @@ impl Decondenser {
 /// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
 /// also the special case of a [`usize`] that represents a number of whitespace
 /// characters to use.
-pub trait Indent {
+pub trait IntoIndent {
     /// Sealed method. Can't be called outside of this crate.
-    fn indent(self, _: Sealed) -> Str;
+    fn into_indent(self, _: Sealed) -> Str;
 }
 
-impl<T: IntoStr> Indent for T {
-    fn indent(self, _: Sealed) -> Str {
+impl<T: IntoStr> IntoIndent for T {
+    fn into_indent(self, _: Sealed) -> Str {
         Str::new(self)
     }
 }
 
-impl Indent for usize {
-    fn indent(self, _: Sealed) -> Str {
+impl IntoIndent for usize {
+    fn into_indent(self, _: Sealed) -> Str {
         Str::n_spaces(self)
     }
 }

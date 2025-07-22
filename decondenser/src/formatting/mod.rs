@@ -1,10 +1,9 @@
 mod engine;
 
-use crate::parsing;
+use crate::{BreakStyleEnum as BreakStyle, SpaceFilterEnum as SpaceFilter, parsing};
+
+use self::engine::{Formatter, MeasuredStr};
 use crate::parsing::l2::TokenTree;
-use crate::space::SpaceKind;
-use crate::{BreakStyle, SoftBreak};
-use engine::{Formatter, MeasuredStr};
 
 impl crate::Decondenser {
     /// This function lives here to keep the `lib.rs` file lean and focused on
@@ -79,12 +78,26 @@ impl<'i> FormattingCtx<'_, 'i> {
             TokenTree::Punct(punct) => {
                 peeked.consume();
                 self.on_punct(Some(leading_blank), punct);
+                return;
             }
             TokenTree::Group(group) => {
                 peeked.consume();
                 self.on_group(Some(leading_blank), group);
+                return;
             }
             _ => {}
+        }
+
+        match leading_blank {
+            Blank::Space(_) => self.fmt.space(1),
+            Blank::Newline(count) => {
+                if self.config.preserve_newlines {
+                    self.fmt.hard_break(std::cmp::min(count, 2));
+                } else {
+                    self.fmt.soft_break();
+                    self.fmt.space(1);
+                }
+            }
         }
     }
 
@@ -95,7 +108,7 @@ impl<'i> FormattingCtx<'_, 'i> {
     fn on_group(&mut self, leading_blank: Option<Blank<'i>>, group: &'i parsing::l2::Group<'i>) {
         let config = &group.config;
 
-        self.fmt.begin(BreakStyle::Consistent);
+        self.fmt.begin(group.config.break_style.0);
 
         let is_empty_group = group
             .content
@@ -108,6 +121,9 @@ impl<'i> FormattingCtx<'_, 'i> {
         } else {
             group.content.iter()
         };
+
+        todo!("Fix the handling of the closing token's leading blank");
+        let closing_punct_leading_blank = tokens.last().clone().iter().next_back();
 
         let mut content = FormattingCtx {
             config: self.config,
@@ -148,33 +164,26 @@ impl<'i> FormattingCtx<'_, 'i> {
         if self.config.preserve_newlines {
             self.fmt.hard_break(std::cmp::min(count, 2));
         } else {
+            self.fmt.soft_break();
             self.space_near_punct(" ", config);
         }
     }
 
     fn space_near_punct(&mut self, input: &str, config: &'i crate::Space) {
-        match &config.kind {
-            SpaceKind::Preserving(config) => {
-                let soft_break = match config.soft_break {
-                    Some(SoftBreak::Always) => true,
-                    Some(SoftBreak::WhenNonEmpty) => input.is_empty(),
-                    None => false,
-                };
+        let size = config
+            .size
+            .unwrap_or_else(|| (self.config.visual_size)(input));
 
-                if soft_break {
-                    self.fmt.soft_break();
-                }
+        let soft_break = match config.breakable.0 {
+            SpaceFilter::Bool(bool) => bool,
+            SpaceFilter::MinSize(min_size) => size >= min_size,
+        };
 
-                self.fmt.space(input.len());
-            }
-            SpaceKind::Fixed(config) => {
-                if config.soft_break {
-                    self.fmt.soft_break();
-                }
-
-                self.fmt.space(config.size);
-            }
+        if soft_break {
+            self.fmt.soft_break();
         }
+
+        self.fmt.space(size);
     }
 }
 
@@ -202,7 +211,7 @@ struct Peeked<'t, 'i> {
 impl<'t, 'i> Peeked<'t, 'i> {
     fn new(tokens: &'t mut std::slice::Iter<'i, TokenTree<'i>>) -> Option<Self> {
         Some(Self {
-            token: tokens.next()?,
+            token: tokens.clone().next()?,
             tokens,
         })
     }

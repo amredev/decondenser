@@ -1,6 +1,6 @@
 use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
 use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
-use decondenser::{BreakStyle, SoftBreak};
+use decondenser::{BreakStyle, SpaceFilter};
 
 impl Deserialize for Config {
     fn deserialize(value: Node) -> Result<Self> {
@@ -92,45 +92,45 @@ impl Deserialize for Space {
         value
             .any_of()
             .usize(|size| {
-                Ok(Self::Fixed {
-                    size,
-                    soft_break: None,
+                Ok(Self {
+                    size: Some(size),
+                    breakable: None,
                 })
             })
-            .object(|obj| {
-                if let Some(size) = obj.optional("size") {
-                    return Self::Fixed {
-                        size,
-                        soft_break: obj.optional("soft_break"),
-                    };
-                }
-
-                Self::Preserving {
-                    soft_break: obj
-                        .optional::<YamlSoftBreak>("soft_break")
-                        .map(|soft_break| soft_break.0),
-                }
+            .object(|obj| Self {
+                size: obj.optional("size"),
+                breakable: obj
+                    .optional::<YamlSpaceFilter>("breakable")
+                    .map(|filter| filter.0),
             })
             .finish()
     }
 }
 
-struct YamlSoftBreak(SoftBreak);
+struct YamlSpaceFilter(SpaceFilter);
 
-yaml::impl_deserialize_for_foreign_enum! {
-    YamlSoftBreak(SoftBreak {
-        Always => "always",
-        WhenNonEmpty => "when-non-empty",
-    })
+impl Deserialize for YamlSpaceFilter {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .any_of()
+            .bool(|bool| Ok(SpaceFilter::bool(bool)))
+            .object(|obj| SpaceFilter::min_size(obj.required("min_size")))
+            .finish()
+            .map(Self)
+    }
 }
 
 struct YamlBreakStyle(BreakStyle);
 
-yaml::impl_deserialize_for_foreign_enum! {
-    YamlBreakStyle(BreakStyle {
-        Consistent => "consistent",
-        Compact => "compact",
-    })
+impl Deserialize for YamlBreakStyle {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .enumeration(&[
+                ("consistent", BreakStyle::consistent),
+                ("compact", BreakStyle::compact),
+            ])
+            .map(Self)
+    }
 }
 
 impl Deserialize for Quote {

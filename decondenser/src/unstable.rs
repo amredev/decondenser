@@ -1,9 +1,3 @@
-/// A sealed struct to future-proof the trait method signatures and prevent
-/// users from implementing the traits of this crate. See the guide:
-/// <https://predr.ag/blog/definitive-guide-to-sealed-traits-in-rust/>
-#[expect(unnameable_types, missing_debug_implementations)]
-pub struct Sealed;
-
 #[cfg(feature = "unstable")]
 impl super::Decondenser {
     /// Display the layout using special characters in the output:

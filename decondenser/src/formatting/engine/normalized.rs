@@ -1,10 +1,9 @@
-pub(super) use super::measured_str::MeasuredStr;
-pub(super) use crate::BreakStyle;
-
+use super::measured_str::MeasuredStr;
 use super::printer::{Printer, PrinterConfig};
 use super::sliding_deque::SlidingDeque;
 use super::token::{Measurement, Size, Token};
 use crate::Decondenser;
+use crate::formatting::BreakStyle;
 use crate::utils::debug_panic;
 use std::collections::VecDeque;
 use std::fmt;

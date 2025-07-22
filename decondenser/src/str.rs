@@ -1,4 +1,4 @@
-use crate::unstable::Sealed;
+use crate::sealed::Sealed;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;

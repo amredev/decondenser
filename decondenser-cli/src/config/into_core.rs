@@ -151,26 +151,17 @@ impl Punct {
 
 impl Space {
     fn into_core(self) -> decondenser::Space {
-        match self {
-            Space::Preserving { soft_break } => {
-                let mut space = decondenser::PreservingSpace::new();
+        let mut space = decondenser::Space::new();
 
-                if let Some(soft_break) = soft_break {
-                    space = space.soft_break(soft_break);
-                }
-
-                space.into()
-            }
-            Space::Fixed { size, soft_break } => {
-                let mut space = decondenser::FixedSpace::new(size);
-
-                if let Some(soft_break) = soft_break {
-                    space = space.soft_break(soft_break);
-                }
-
-                space.into()
-            }
+        if let Some(size) = self.size {
+            space = space.size(size);
         }
+
+        if let Some(breakable) = self.breakable {
+            space = space.breakable(breakable);
+        }
+
+        space
     }
 }
 
