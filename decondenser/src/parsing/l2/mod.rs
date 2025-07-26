@@ -36,7 +36,7 @@ impl<'a> TokenTreesFromL1<'a> {
 
                 match node {
                     l1::TokenTree::Space { start } => TokenTree::Space(&input[*start..end]),
-                    l1::TokenTree::NewLine { start } => TokenTree::NewLine(end - *start),
+                    l1::TokenTree::Newline { start } => TokenTree::Newline(end - *start),
                     l1::TokenTree::Raw { start } => TokenTree::Raw(&input[*start..end]),
                     l1::TokenTree::Punct(punct) => TokenTree::Punct(punct.config),
                     l1::TokenTree::Group(group) => {

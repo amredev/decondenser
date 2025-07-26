@@ -27,9 +27,9 @@ impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
             if char == '\n' {
-                if !matches!(self.output.last(), Some(TokenTree::NewLine { .. })) {
+                if !matches!(self.output.last(), Some(TokenTree::Newline { .. })) {
                     let start = self.cursor.byte_offset();
-                    self.output.push(TokenTree::NewLine { start });
+                    self.output.push(TokenTree::Newline { start });
                 }
 
                 self.cursor.next();

@@ -20,7 +20,10 @@ pub(crate) trait NodeExt: Sized {
         self.any_of().string(Ok).finish()
     }
     fn scalar<N: FromStr<Err: Display>>(self) -> Result<N> {
-        self.any_of().scalar(Ok).finish()
+        self.any_of().scalar_from_str(Ok).finish()
+    }
+    fn enumeration<T>(self, variants: &[(&'static str, fn() -> T)]) -> Result<T> {
+        self.any_of().enumeration(variants).finish()
     }
 }
 
@@ -94,22 +97,37 @@ impl<T> AnyOfCtx<T> {
     }
 
     pub(crate) fn string(self, f: impl FnOnce(String) -> Result<T>) -> Self {
-        self.scalar_impl("a string", |str| Ok::<_, Infallible>(str.to_owned()), f)
+        self.scalar_with_parser(
+            "a string",
+            |scalar| Ok::<_, Infallible>(scalar.as_str().to_owned()),
+            f,
+        )
+    }
+
+    pub(crate) fn bool(self, f: impl FnOnce(bool) -> Result<T>) -> Self {
+        self.scalar_from_str(f)
     }
 
     pub(crate) fn usize(self, f: impl FnOnce(usize) -> Result<T>) -> Self {
-        self.scalar(f)
+        self.scalar_from_str(f)
     }
 
-    fn scalar<S: FromStr<Err: Display>>(self, f: impl FnOnce(S) -> Result<T>) -> Self {
-        self.scalar_impl(std::any::type_name::<S>(), S::from_str, f)
+    fn scalar_from_str<S: FromStr<Err: Display>>(
+        self,
+        convert: impl FnOnce(S) -> Result<T>,
+    ) -> Self {
+        self.scalar_with_parser(
+            std::any::type_name::<S>(),
+            |scalar| scalar.parse::<S>(),
+            convert,
+        )
     }
 
-    fn scalar_impl<U, E>(
+    fn scalar_with_parser<U, E>(
         self,
         ty: &'static str,
-        parse: impl FnOnce(&str) -> Result<U, E>,
-        f: impl FnOnce(U) -> Result<T>,
+        parse: impl FnOnce(&MarkedScalarNode) -> Result<U, E>,
+        convert: impl FnOnce(U) -> Result<T>,
     ) -> Self {
         let Self(AnyOfState::Pending(mut pending)) = self else {
             return self;
@@ -120,12 +138,39 @@ impl<T> AnyOfCtx<T> {
             return Self(AnyOfState::Pending(pending));
         };
 
-        let Ok(value) = parse(scalar.as_str()) else {
+        let Ok(value) = parse(scalar) else {
             pending.allowed_types.insert(ty);
             return Self(AnyOfState::Pending(pending));
         };
 
-        Self(AnyOfState::Done(f(value)))
+        Self(AnyOfState::Done(convert(value)))
+    }
+
+    pub(crate) fn enumeration(self, variants: &[(&'static str, fn() -> T)]) -> Self {
+        let Self(AnyOfState::Pending(mut pending)) = self else {
+            return self;
+        };
+
+        let into_pending = |mut pending: PendingAnyOf| {
+            for (name, _) in variants {
+                pending.allowed_types.insert(name);
+            }
+            Self(AnyOfState::Pending(pending))
+        };
+
+        let Node::Scalar(scalar) = &mut pending.node else {
+            return into_pending(pending);
+        };
+
+        let string = scalar.as_str();
+
+        let index = variants.iter().find(|(name, _)| *name == string);
+
+        if let Some((_, variant)) = index {
+            Self(AnyOfState::Done(Ok(variant())))
+        } else {
+            into_pending(pending)
+        }
     }
 
     pub(crate) fn finish(self) -> Result<T> {
@@ -138,10 +183,10 @@ impl<T> AnyOfCtx<T> {
             Node::Mapping(_) => "an object",
             Node::Sequence(_) => "an array",
             Node::Scalar(scalar) => None
-                .or_else(|| scalar.as_bool().map(|_| "a boolean"))
-                .or_else(|| scalar.as_u64().map(|_| "u64"))
-                .or_else(|| scalar.as_i64().map(|_| "a negative i64"))
-                .or_else(|| scalar.as_f64().map(|_| "an f64"))
+                .or_else(|| scalar.parse::<bool>().map(|_| "a boolean").ok())
+                .or_else(|| scalar.parse::<u64>().map(|_| "u64").ok())
+                .or_else(|| scalar.parse::<i64>().map(|_| "a negative i64").ok())
+                .or_else(|| scalar.parse::<f64>().map(|_| "an f64").ok())
                 .unwrap_or("a string"),
         };
 

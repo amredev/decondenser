@@ -24,16 +24,15 @@
 //! Also, this blog post by @mcyoung is a great resource for understanding:
 //! <https://mcyoung.xyz/2025/03/11/formatters/>
 
-mod measured_str;
 mod normalized;
 mod printer;
 mod sliding_deque;
 mod token;
 
-pub(crate) use measured_str::MeasuredStr;
+pub(crate) use crate::visual_size::MeasuredStr;
 
 use self::normalized::NormalizedFormatter;
-use crate::BreakStyle;
+use crate::formatting::BreakStyle;
 
 /// A generic formatter that works in terms of groups, raw strings, spaces,
 /// breaks, and indent. This struct is the top-level normalization layer around

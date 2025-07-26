@@ -58,6 +58,9 @@ type_complexity = "allow"
 # Too subjective. A long function is not always a bad function.
 cognitive_complexity = "allow"
 
+# Too intrusive. Additional `Default` trait impl is not always needed.
+new_without_default = "allow"
+
 # Turn on lints that are allow by default in `clippy`.
 #
 # We set them to a `warn` level instead of `deny` to prevent clippy from exiting

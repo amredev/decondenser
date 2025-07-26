@@ -1,7 +1,7 @@
-use super::measured_str::MeasuredStr;
-use crate::BreakStyle;
 use crate::ansi::{BLACK, BLUE, BOLD, GREEN, NO_BOLD, RESET, WHITE, YELLOW};
+use crate::formatting::BreakStyle;
 use crate::utils::{debug_panic, scope_path};
+use crate::visual_size::MeasuredStr;
 use std::fmt;
 
 #[derive(Clone, Copy)]

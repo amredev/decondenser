@@ -1,6 +1,6 @@
 use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
 use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
-use decondenser::BreakStyle;
+use decondenser::{BreakStyle, SpaceFilter};
 
 impl Deserialize for Config {
     fn deserialize(value: Node) -> Result<Self> {
@@ -99,19 +99,38 @@ impl Deserialize for Space {
             })
             .object(|obj| Self {
                 size: obj.optional("size"),
-                breakable: obj.optional("breakable"),
+                breakable: obj
+                    .optional::<YamlSpaceFilter>("breakable")
+                    .map(|filter| filter.0),
             })
             .finish()
     }
 }
 
+struct YamlSpaceFilter(SpaceFilter);
+
+impl Deserialize for YamlSpaceFilter {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .any_of()
+            .bool(|bool| Ok(SpaceFilter::bool(bool)))
+            .object(|obj| SpaceFilter::min_size(obj.required("min_size")))
+            .finish()
+            .map(Self)
+    }
+}
+
 struct YamlBreakStyle(BreakStyle);
 
-yaml::impl_deserialize_for_foreign_enum! {
-    YamlBreakStyle(BreakStyle {
-        Consistent => "consistent",
-        Compact => "compact",
-    })
+impl Deserialize for YamlBreakStyle {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .enumeration(&[
+                ("consistent", BreakStyle::consistent),
+                ("compact", BreakStyle::compact),
+            ])
+            .map(Self)
+    }
 }
 
 impl Deserialize for Quote {

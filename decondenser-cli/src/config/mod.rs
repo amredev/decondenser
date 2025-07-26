@@ -3,7 +3,7 @@ mod into_core;
 
 use crate::{Files, Result};
 use anyhow::Context;
-use decondenser::BreakStyle;
+use decondenser::{BreakStyle, SpaceFilter};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -50,7 +50,7 @@ struct Punct {
 
 struct Space {
     size: Option<usize>,
-    breakable: Option<bool>,
+    breakable: Option<SpaceFilter>,
 }
 
 struct Quote {

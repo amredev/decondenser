@@ -5,20 +5,27 @@ mod ansi;
 mod config;
 mod formatting;
 mod parsing;
+mod sealed;
+mod space;
 mod str;
 mod unescape;
-mod unstable;
 mod utils;
+mod visual_size;
+
+#[cfg(feature = "unstable")]
+mod unstable;
 
 pub use self::config::*;
-pub use str::IntoStr;
+pub use self::space::*;
+pub use self::str::IntoStr;
 
+use self::sealed::Sealed;
 use self::str::Str;
-use unstable::Sealed;
+use self::visual_size::BoxedVisualSize;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
 pub struct Decondenser {
     indent: Str,
@@ -28,9 +35,13 @@ pub struct Decondenser {
     groups: Vec<Group>,
     quotes: Vec<Quote>,
     puncts: Vec<Punct>,
-    visual_size: fn(&str) -> usize,
+    visual_size: BoxedVisualSize,
     debug_layout: bool,
     debug_indent: bool,
+}
+
+fn default_visual_size(str: &str) -> usize {
+    str.chars().filter(|&char| char != '\r').count()
 }
 
 impl Decondenser {
@@ -40,14 +51,17 @@ impl Decondenser {
     /// [`Decondenser`] configured for free-form text formatting.
     pub fn empty() -> Self {
         Self {
-            indent: Str::new("    "),
+            indent: Str::n_spaces(4),
             max_line_size: 80,
             no_break_size: None,
             preserve_newlines: false,
             groups: vec![],
             quotes: vec![],
             puncts: vec![],
-            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+            // Not using closure syntax here for the `default_visual_size` to
+            // make its type name (that is used in `VisualSizeAlgorithm` Debug
+            // impl) much nicer.
+            visual_size: BoxedVisualSize::new(default_visual_size),
             debug_layout: false,
             debug_indent: false,
         }
@@ -66,35 +80,29 @@ impl Decondenser {
     /// The default formatting is guaranteed to be stable across patch versions,
     /// but it can change between minor and major versions.
     pub fn generic() -> Self {
-        let breakable = |size| Space::fixed(size).breakable(true);
+        let group = |start, end| {
+            let space = Space::new().breakable(true);
+            Group::new(
+                Punct::new(start).trailing_space(space.clone()),
+                Punct::new(end).leading_space(space),
+            )
+        };
+
+        let punct = |symbol| {
+            Punct::new(symbol).trailing_space(Space::new().breakable(SpaceFilter::min_size(1)))
+        };
 
         Self::empty()
             .groups([
-                Group::new(
-                    Punct::new("(").trailing_space(breakable(0)),
-                    Punct::new(")").leading_space(breakable(0)),
-                ),
-                Group::new(
-                    Punct::new("[").trailing_space(breakable(0)),
-                    Punct::new("]").leading_space(breakable(0)),
-                ),
-                Group::new(
-                    Punct::new("{")
-                        .leading_space(1)
-                        .trailing_space(breakable(1)),
-                    Punct::new("}").leading_space(breakable(1)),
-                ),
+                group("(", ")"),
+                group("[", "]"),
+                group("{", "}"),
                 // Elixir bitstrings
-                Group::new(
-                    Punct::new("<<").trailing_space(breakable(0)),
-                    Punct::new(">>").leading_space(breakable(0)),
-                ),
+                group("<<", ">>"),
                 // Many languages use these for generic types/functions
-                Group::new(
-                    Punct::new("<").trailing_space(breakable(0)),
-                    Punct::new(">").leading_space(breakable(0)),
-                ),
+                group("<", ">"),
             ])
+            .puncts([punct(","), punct(";")])
             .quotes([
                 Quote::new("\"", "\"").escapes([
                     Escape::new("\\n", "\n"),
@@ -112,17 +120,6 @@ impl Decondenser {
                     Escape::new("\\\\", "\\"),
                     Escape::new("\\'", "'"),
                 ]),
-            ])
-            .puncts([
-                Punct::new(",").trailing_space(breakable(1)),
-                Punct::new(";").trailing_space(breakable(1)),
-                Punct::new(":").trailing_space(1),
-                Punct::new("=>").surrounding_space(1),
-                Punct::new("!==").surrounding_space(1),
-                Punct::new("===").surrounding_space(1),
-                Punct::new("!=").surrounding_space(1),
-                Punct::new("==").surrounding_space(1),
-                Punct::new("=").surrounding_space(1),
             ])
     }
 
@@ -145,8 +142,8 @@ impl Decondenser {
     /// String to used to make a single level of indentation.
     ///
     /// Defaults to 4 spaces.
-    pub fn indent(mut self, value: impl Spacing) -> Self {
-        self.indent = value.spacing(Sealed);
+    pub fn indent(mut self, value: impl IntoIndent) -> Self {
+        self.indent = value.into_indent(Sealed);
         self
     }
 
@@ -161,8 +158,8 @@ impl Decondenser {
     /// Line size is calculated with the [`visual_size`] algorithm, that can be
     /// overridden.
     ///
-    /// [`visual_size`]: Decondenser::visual_size()
-    /// [`no_break_size`]: Decondenser::no_break_size()
+    /// [`visual_size`]: Self::visual_size()
+    /// [`no_break_size`]: Self::no_break_size()
     pub fn max_line_size(mut self, value: usize) -> Self {
         self.max_line_size = value;
         self
@@ -182,19 +179,23 @@ impl Decondenser {
         self
     }
 
-    /// Keep line breaks from the input in the output
+    /// Keep line breaks from the input in the output.
+    ///
+    /// By default, newlines will be treated as regular spaces.
     pub fn preserve_newlines(mut self, value: bool) -> Self {
         self.preserve_newlines = value;
         self
     }
 
-    /// Function used to calculate the effective "visual" size of a string.
+    /// Algorithm used to calculate the effective "visual" size of a string.
     ///
     /// The default algorithm uses [`str::chars()`] to count the number of
-    /// [`char`]s in the string with the exception of `\r` characters.
+    /// [`char`]s in the string with the exception of `\r` characters. It
+    /// doesn't take into account printable/non-printable characters other than
+    /// that.
     ///
     /// For more robust size calculation, the crate [`unicode_width`] can be
-    /// used like this:
+    /// used like this ([`VisualSize`] is implemented for `Fn(&str) -> usize`):
     ///
     /// ```
     /// # use decondenser::Decondenser;
@@ -206,9 +207,14 @@ impl Decondenser {
     /// Importantly, a single white space character (' ') is always considered
     /// to have the size of 1 regardless of the configured algorithm.
     ///
+    /// # Semver Guarantees
+    ///
+    /// The default algorithm MAY NOT change across patch versions, but it MAY
+    /// change between minor/major versions.
+    ///
     /// [`unicode_width`]: https://docs.rs/unicode-width
-    pub fn visual_size(mut self, value: fn(&str) -> usize) -> Self {
-        self.visual_size = value;
+    pub fn visual_size(mut self, value: impl VisualSize) -> Self {
+        self.visual_size = BoxedVisualSize::new(value);
         self
     }
 
@@ -229,5 +235,42 @@ impl Decondenser {
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
         self
+    }
+}
+
+/// Defines the algorithm for calculating the "visual" size of a string. See
+/// [`Decondenser::visual_size`] for more details.
+///
+/// You probably don't want to implement this trait by hand, and instead use a
+/// closure since this trait is implemented for `Fn(&str) -> usize`.
+pub trait VisualSize: Send + Sync + 'static {
+    /// The main implementation. It is assumed to be cheap, and it'll be called
+    /// many times during the formatting.
+    fn visual_size(&self, str: &str) -> usize;
+}
+
+impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
+    fn visual_size(&self, str: &str) -> usize {
+        self(str)
+    }
+}
+
+/// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
+/// also the special case of a [`usize`] that represents a number of whitespace
+/// characters to use.
+pub trait IntoIndent {
+    /// Sealed method. Can't be called outside of this crate.
+    fn into_indent(self, _: Sealed) -> Str;
+}
+
+impl<T: IntoStr> IntoIndent for T {
+    fn into_indent(self, _: Sealed) -> Str {
+        Str::new(self)
+    }
+}
+
+impl IntoIndent for usize {
+    fn into_indent(self, _: Sealed) -> Str {
+        Str::n_spaces(self)
     }
 }
