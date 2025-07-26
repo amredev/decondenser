@@ -24,13 +24,12 @@
 //! Also, this blog post by @mcyoung is a great resource for understanding:
 //! <https://mcyoung.xyz/2025/03/11/formatters/>
 
-mod measured_str;
 mod normalized;
 mod printer;
 mod sliding_deque;
 mod token;
 
-pub(crate) use measured_str::MeasuredStr;
+pub(crate) use crate::visual_size::MeasuredStr;
 
 use self::normalized::NormalizedFormatter;
 use crate::formatting::BreakStyle;

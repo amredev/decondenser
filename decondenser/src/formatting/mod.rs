@@ -68,7 +68,7 @@ impl<'i> FormattingCtx<'_, 'i> {
         }
     }
 
-    fn on_blank(&mut self, leading_blank: Blank<'i>) {
+    fn on_blank(&mut self, blank: Blank<'i>) {
         let Some(peeked) = self.tokens.peek() else {
             // No need for trailing blanks
             return;
@@ -77,18 +77,18 @@ impl<'i> FormattingCtx<'_, 'i> {
         match peeked.token {
             TokenTree::Punct(punct) => {
                 peeked.consume();
-                self.on_punct(Some(leading_blank), punct);
+                self.on_punct(Some(blank), punct);
                 return;
             }
             TokenTree::Group(group) => {
                 peeked.consume();
-                self.on_group(Some(leading_blank), group);
+                self.on_group(Some(blank), group);
                 return;
             }
             _ => {}
         }
 
-        match leading_blank {
+        match blank {
             Blank::Space(_) => self.fmt.space(1),
             Blank::Newline(count) => {
                 if self.config.preserve_newlines {
@@ -102,7 +102,7 @@ impl<'i> FormattingCtx<'_, 'i> {
     }
 
     fn measured_str<'a>(&self, str: &'a str) -> MeasuredStr<'a> {
-        MeasuredStr::new(str, self.config.visual_size)
+        self.config.visual_size.measured_str(str)
     }
 
     fn on_group(&mut self, leading_blank: Option<Blank<'i>>, group: &'i parsing::l2::Group<'i>) {
@@ -116,14 +116,17 @@ impl<'i> FormattingCtx<'_, 'i> {
             .all(|token| matches!(token, TokenTree::Newline(_) | TokenTree::Space(_)));
 
         // Trim blank-only groups to a single line always
-        let tokens = if is_empty_group {
+        let mut tokens = if is_empty_group {
             [].iter()
         } else {
             group.content.iter()
         };
 
-        todo!("Fix the handling of the closing token's leading blank");
-        let closing_punct_leading_blank = tokens.last().clone().iter().next_back();
+        let closing_punct_leading_blank = tokens
+            .clone()
+            .next_back()
+            .and_then(token_tree_to_blank)
+            .inspect(|_| _ = tokens.next_back());
 
         let mut content = FormattingCtx {
             config: self.config,
@@ -137,8 +140,7 @@ impl<'i> FormattingCtx<'_, 'i> {
         self.fmt.indent(-1);
 
         if group.closed {
-            let leading_blank = self.tokens.optional_blank().filter(|_| !is_empty_group);
-            self.on_punct(leading_blank, &config.closing);
+            self.on_punct(closing_punct_leading_blank, &config.closing);
         }
 
         self.fmt.end();
@@ -172,7 +174,7 @@ impl<'i> FormattingCtx<'_, 'i> {
     fn space_near_punct(&mut self, input: &str, config: &'i crate::Space) {
         let size = config
             .size
-            .unwrap_or_else(|| (self.config.visual_size)(input));
+            .unwrap_or_else(|| self.config.visual_size.measure(input));
 
         let soft_break = match config.breakable.0 {
             SpaceFilter::Bool(bool) => bool,
@@ -221,16 +223,14 @@ impl<'t, 'i> Peeked<'t, 'i> {
     }
 
     fn consume_blank(self) -> Option<Blank<'i>> {
-        match self.token {
-            TokenTree::Space(space) => {
-                self.consume();
-                Some(Blank::Space(space))
-            }
-            TokenTree::Newline(count) => {
-                self.consume();
-                Some(Blank::Newline(*count))
-            }
-            _ => None,
-        }
+        token_tree_to_blank(self.token).inspect(|_| self.consume())
+    }
+}
+
+fn token_tree_to_blank<'i>(token: &'i TokenTree<'i>) -> Option<Blank<'i>> {
+    match token {
+        TokenTree::Space(space) => Some(Blank::Space(space)),
+        TokenTree::Newline(count) => Some(Blank::Newline(*count)),
+        _ => None,
     }
 }

@@ -10,20 +10,22 @@ mod space;
 mod str;
 mod unescape;
 mod utils;
+mod visual_size;
 
 #[cfg(feature = "unstable")]
 mod unstable;
 
 pub use self::config::*;
 pub use self::space::*;
-pub use str::IntoStr;
+pub use self::str::IntoStr;
 
+use self::sealed::Sealed;
 use self::str::Str;
-use sealed::Sealed;
+use self::visual_size::BoxedVisualSize;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
 pub struct Decondenser {
     indent: Str,
@@ -33,9 +35,13 @@ pub struct Decondenser {
     groups: Vec<Group>,
     quotes: Vec<Quote>,
     puncts: Vec<Punct>,
-    visual_size: fn(&str) -> usize,
+    visual_size: BoxedVisualSize,
     debug_layout: bool,
     debug_indent: bool,
+}
+
+fn default_visual_size(str: &str) -> usize {
+    str.chars().filter(|&char| char != '\r').count()
 }
 
 impl Decondenser {
@@ -45,14 +51,17 @@ impl Decondenser {
     /// [`Decondenser`] configured for free-form text formatting.
     pub fn empty() -> Self {
         Self {
-            indent: Str::new("    "),
+            indent: Str::n_spaces(4),
             max_line_size: 80,
             no_break_size: None,
             preserve_newlines: false,
             groups: vec![],
             quotes: vec![],
             puncts: vec![],
-            visual_size: |str| str.chars().filter(|&char| char != '\r').count(),
+            // Not using closure syntax here for the `default_visual_size` to
+            // make its type name (that is used in `VisualSizeAlgorithm` Debug
+            // impl) much nicer.
+            visual_size: BoxedVisualSize::new(default_visual_size),
             debug_layout: false,
             debug_indent: false,
         }
@@ -149,8 +158,8 @@ impl Decondenser {
     /// Line size is calculated with the [`visual_size`] algorithm, that can be
     /// overridden.
     ///
-    /// [`visual_size`]: Decondenser::visual_size()
-    /// [`no_break_size`]: Decondenser::no_break_size()
+    /// [`visual_size`]: Self::visual_size()
+    /// [`no_break_size`]: Self::no_break_size()
     pub fn max_line_size(mut self, value: usize) -> Self {
         self.max_line_size = value;
         self
@@ -178,13 +187,15 @@ impl Decondenser {
         self
     }
 
-    /// Function used to calculate the effective "visual" size of a string.
+    /// Algorithm used to calculate the effective "visual" size of a string.
     ///
     /// The default algorithm uses [`str::chars()`] to count the number of
-    /// [`char`]s in the string with the exception of `\r` characters.
+    /// [`char`]s in the string with the exception of `\r` characters. It
+    /// doesn't take into account printable/non-printable characters other than
+    /// that.
     ///
     /// For more robust size calculation, the crate [`unicode_width`] can be
-    /// used like this:
+    /// used like this ([`VisualSize`] is implemented for `Fn(&str) -> usize`):
     ///
     /// ```
     /// # use decondenser::Decondenser;
@@ -196,9 +207,14 @@ impl Decondenser {
     /// Importantly, a single white space character (' ') is always considered
     /// to have the size of 1 regardless of the configured algorithm.
     ///
+    /// # Semver Guarantees
+    ///
+    /// The default algorithm MAY NOT change across patch versions, but it MAY
+    /// change between minor/major versions.
+    ///
     /// [`unicode_width`]: https://docs.rs/unicode-width
-    pub fn visual_size(mut self, value: fn(&str) -> usize) -> Self {
-        self.visual_size = value;
+    pub fn visual_size(mut self, value: impl VisualSize) -> Self {
+        self.visual_size = BoxedVisualSize::new(value);
         self
     }
 
@@ -219,6 +235,23 @@ impl Decondenser {
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
         self
+    }
+}
+
+/// Defines the algorithm for calculating the "visual" size of a string. See
+/// [`Decondenser::visual_size`] for more details.
+///
+/// You probably don't want to implement this trait by hand, and instead use a
+/// closure since this trait is implemented for `Fn(&str) -> usize`.
+pub trait VisualSize: Send + Sync + 'static {
+    /// The main implementation. It is assumed to be cheap, and it'll be called
+    /// many times during the formatting.
+    fn visual_size(&self, str: &str) -> usize;
+}
+
+impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
+    fn visual_size(&self, str: &str) -> usize {
+        self(str)
     }
 }
 

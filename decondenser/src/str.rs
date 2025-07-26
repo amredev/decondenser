@@ -63,8 +63,8 @@ impl Str {
         str.into_str(Sealed)
     }
 
-    /// Optimized constructor that creates an `Str` that represents the given
-    /// number of spaces. Doesn't allocate if `count <= 20`.
+    /// Optimized constructor that creates an [`Str`] with the given number of
+    /// spaces. Doesn't allocate if `count <= 20`.
     pub(crate) fn n_spaces(count: usize) -> Self {
         "                    "
             .get(0..count)

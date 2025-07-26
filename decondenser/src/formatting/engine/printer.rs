@@ -1,7 +1,7 @@
-use super::measured_str::MeasuredStr;
 use super::token::Size;
 use crate::formatting::BreakStyle;
 use crate::utils::debug_panic;
+use crate::visual_size::MeasuredStr;
 use std::{cmp, iter};
 
 #[derive(Debug)]

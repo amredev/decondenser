@@ -152,7 +152,7 @@ pub struct Punct {
 }
 
 impl Punct {
-    /// Creates a new [`Punct`] with the given content.
+    /// Creates a new [`Punct`] with the given symbol string.
     #[must_use]
     pub fn new(symbol: impl IntoStr) -> Self {
         Self {

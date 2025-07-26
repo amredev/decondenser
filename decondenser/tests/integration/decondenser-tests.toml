@@ -13,10 +13,15 @@ Family { name: "Smith", members: [Member { name: "Alice", age: 30 }, Member { na
 output = """
 Test {key1:"value1","key2": "value2"},[[1],[2],[3],],{
     "key1":"value1","key2":[123]
-}Family {
+}
+Family {
     name: "Smith",
-    members: [Member { name: "Alice", age: 30}, Member { name: "Bob", age: 28} ]
-}"""
+    members: [
+        Member { name: "Alice", age: 30 },
+        Member { name: "Bob", age: 28 }
+    ]
+}
+"""
 
 ["simple JSON"]
 max_line_size = 20
@@ -29,10 +34,13 @@ output = """
 {
     "key1": "value1",
     "key2": [
-        { "key3": 123},
-        { "key4": 4}
+        {
+            "key3": 123
+        },
+        { "key4": 4 }
     ]
-}"""
+}
+"""
 
 
 ["JSON escapes"]
@@ -43,8 +51,8 @@ input = """
 {"key": "val1\tval2"}
 """
 output = """
-{"key": "\\n\\r\\t" }{"key": "val1
-val2" }{"key": "val1\rval2" }{"key": "val1\tval2" }"""
+{"key": "\\n\\r\\t"} {"key": "val1
+val2"} {"key": "val1\rval2"} {"key": "val1\tval2"}"""
 
 ["simple escaped JSON"]
 input = '''
@@ -70,13 +78,14 @@ AwsRecoveryPoint { recovery_point_arn: ResourceName { partition: Some(Identifier
 output = """
 AwsRecoveryPoint {
     recovery_point_arn: ResourceName {
-        partition: Some(Identifier( "aws")),
-        service: Identifier( "ec2"),
-        region: Some(Identifier( "us-east-1")),
+        partition: Some(Identifier( "aws" )),
+        service: Identifier( "ec2" ),
+        region: Some(Identifier( "us-east-1" )),
         account_id: None,
-        resource: ResourceIdentifier("image/ami-redacted" )
+        resource: ResourceIdentifier("image/ami-redacted")
     }
-}"""
+}
+"""
 
 ["JavaScript"]
 input = """
@@ -89,12 +98,12 @@ const base64Compile = (str) =>
     );
 """
 output = """
-const base64Compile = (str )=>
+const base64Compile = (str) =>
 WebAssembly.compile(
     typeof Buffer !== "undefined"
-    ? Buffer.from(str, "base64" )            : Uint8Array.from(
+    ? Buffer.from(str, "base64") : Uint8Array.from(
         atob(str),
-        (b )=> b.charCodeAt(0)
+        (b) => b.charCodeAt(0)
     ),
 );
 """
@@ -113,4 +122,5 @@ output = """
 TimeoutConfig {
     read_timeout: Set(60s),
     connect_timeout: Set(3.1s),
-}"""
+}
+"""
