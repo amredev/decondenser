@@ -1,8 +1,8 @@
 mod engine;
 
-use crate::{BreakStyleEnum as BreakStyle, parsing};
-
 use self::engine::{Formatter, MeasuredStr};
+use crate::config::BreakStyleEnum as BreakStyle;
+use crate::parsing;
 use crate::parsing::l2::TokenTree;
 
 impl crate::Decondenser {

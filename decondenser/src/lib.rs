@@ -1,23 +1,25 @@
 //! The API of this crate is not stable yet! It's not yet intended for public use.
-#![forbid(unsafe_code)]
+#![forbid(clippy::wildcard_imports)]
 
 mod ansi;
 mod config;
+mod cursor;
 mod formatting;
 mod parsing;
 mod sealed;
 mod space;
 mod str;
-mod unescape;
+mod unescaping;
 mod utils;
 mod visual_size;
 
 #[cfg(feature = "unstable")]
 mod unstable;
 
-pub use self::config::*;
-pub use self::space::*;
+pub use self::config::{BreakStyle, Group, Punct, Quote};
+pub use self::space::{IntoSpace, Space, SpaceSize};
 pub use self::str::IntoStr;
+pub use self::unescaping::unescape;
 
 use self::sealed::Sealed;
 use self::str::Str;
@@ -32,8 +34,11 @@ pub struct Decondenser {
     max_line_size: usize,
     no_break_size: Option<usize>,
     groups: Vec<Group>,
-    quotes: Vec<Quote>,
     puncts: Vec<Punct>,
+
+    quotes: Vec<Quote>,
+    escape_char: char,
+
     visual_size: BoxedVisualSize,
     debug_layout: bool,
     debug_indent: bool,
@@ -54,8 +59,17 @@ impl Decondenser {
             max_line_size: 80,
             no_break_size: None,
             groups: vec![],
-            quotes: vec![],
             puncts: vec![],
+
+            quotes: vec![],
+
+            // Not sure if it makes sense to make this configurable, and if so
+            // what the best and flexible-enough API for this would be. By
+            // making this configurable we'd likely want to make the escapes
+            // parsing algorithm itself configurable in general. Maybe as a
+            // closure parameter?
+            escape_char: '\\',
+
             // Not using closure syntax here for the `default_visual_size` to
             // make its type name (that is used in `VisualSizeAlgorithm` Debug
             // impl) much nicer.
@@ -87,7 +101,7 @@ impl Decondenser {
                 Punct::new(start).trailing_space(space.clone()),
                 Punct::new(end).leading_space(space),
             )
-        };
+        }
 
         let punct = |symbol| Punct::new(symbol).trailing_space(Space::new().breakable(true));
 
@@ -100,24 +114,7 @@ impl Decondenser {
                 group("<<", ">>", 0),
             ])
             .puncts([punct(","), punct(";")])
-            .quotes([
-                Quote::new("\"", "\"").escapes([
-                    Escape::new("\\n", "\n"),
-                    Escape::new("\\r", "\r"),
-                    Escape::new("\\r", "\r"),
-                    Escape::new("\\t", "\t"),
-                    Escape::new("\\\\", "\\"),
-                    Escape::new("\\\"", "\""),
-                ]),
-                Quote::new("'", "'").escapes([
-                    Escape::new("\\n", "\n"),
-                    Escape::new("\\r", "\r"),
-                    Escape::new("\\r", "\r"),
-                    Escape::new("\\t", "\t"),
-                    Escape::new("\\\\", "\\"),
-                    Escape::new("\\'", "'"),
-                ]),
-            ])
+            .quotes([Quote::new("\"", "\""), Quote::new("'", "'")])
     }
 
     /// Pretty-print any text based on brackets nesting.
@@ -131,7 +128,7 @@ impl Decondenser {
     /// this size. For example, a single long string literal or a long sequence
     /// of non-whitespace characters may span more than this many characters,
     /// and decondenser does not currently attempt to break these up.
-    #[must_use = "this is a pure function, calling it without using the result will do nothing"]
+    #[must_use]
     pub fn decondense(&self, input: &str) -> String {
         self.decondense_impl(input)
     }
@@ -212,17 +209,16 @@ impl Decondenser {
         self.groups = Vec::from_iter(value);
         self
     }
-
-    /// Quotes notations that enclose unbreakable string-literal-like content.
-    pub fn quotes(mut self, value: impl IntoIterator<Item = Quote>) -> Self {
-        self.quotes = Vec::from_iter(value);
-        self
-    }
-
     /// Punctuation sequences used to separate content and potentially break it
     /// into multiple lines. This can be controlled via the [`Punct`] config.
     pub fn puncts(mut self, value: impl IntoIterator<Item = Punct>) -> Self {
         self.puncts = Vec::from_iter(value);
+        self
+    }
+
+    /// Quotes notations that enclose unbreakable string-literal-like content.
+    pub fn quotes(mut self, value: impl IntoIterator<Item = Quote>) -> Self {
+        self.quotes = Vec::from_iter(value);
         self
     }
 }

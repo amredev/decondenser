@@ -40,6 +40,12 @@ impl Deserialize for usize {
     }
 }
 
+impl Deserialize for char {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.scalar()
+    }
+}
+
 impl<T: Deserialize> Deserialize for Vec<T> {
     fn deserialize(value: Node) -> Result<Self> {
         value

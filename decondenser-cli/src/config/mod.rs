@@ -9,7 +9,7 @@ use std::path::Path;
 
 #[derive(Default)]
 pub(crate) struct Config {
-    formatting: Formatting,
+    common: Common,
     langs: BTreeMap<String, Lang>,
 
     // Only used for debugging. No stability guarantees are provided for these
@@ -21,14 +21,14 @@ pub(crate) struct Config {
 }
 
 #[derive(Default)]
-struct Formatting {
+struct Common {
     indent: Option<String>,
     max_line_size: Option<usize>,
     no_break_size: Option<usize>,
 }
 
 struct Lang {
-    formatting: Formatting,
+    common: Common,
     groups: Option<Vec<Group>>,
     quotes: Option<Vec<Quote>>,
     puncts: Option<Vec<Punct>>,
@@ -55,12 +55,6 @@ struct Space {
 struct Quote {
     opening: String,
     closing: String,
-    escapes: Option<Vec<Escape>>,
-}
-
-struct Escape {
-    escaped: String,
-    unescaped: String,
 }
 
 impl Config {

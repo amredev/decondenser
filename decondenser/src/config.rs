@@ -7,7 +7,7 @@ use crate::{IntoSpace, Space};
 ///
 /// Can be broken into multiple lines if it takes too much space to fit on a
 /// single line.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Group {
     pub(crate) opening: Punct,
     pub(crate) closing: Punct,
@@ -92,11 +92,10 @@ impl BreakStyle {
 /// The content is delimited by the opening and closing sequences, and can
 /// contain special characters that are escaped using the provided escape
 /// sequences logic.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Quote {
     pub(crate) opening: Str,
     pub(crate) closing: Str,
-    pub(crate) escapes: Vec<Escape>,
 }
 
 impl Quote {
@@ -106,45 +105,13 @@ impl Quote {
         Self {
             opening: Str::new(opening),
             closing: Str::new(closing),
-            escapes: vec![],
-        }
-    }
-
-    /// Sets the escape sequences that are used to escape special characters in
-    /// the quoted content. See the [`Escape`] struct for more details.
-    ///
-    /// By default, no escape sequences are defined.
-    #[must_use]
-    pub fn escapes(mut self, value: impl IntoIterator<Item = Escape>) -> Self {
-        self.escapes = Vec::from_iter(value);
-        self
-    }
-}
-
-/// Describes a single escape sequence inside of a quoted content.
-#[derive(Debug, Clone)]
-pub struct Escape {
-    pub(crate) escaped: Str,
-
-    #[expect(dead_code, reason = "TODO: implement unescaping API")]
-    pub(crate) unescaped: Str,
-}
-
-impl Escape {
-    /// Creates a new [`Escape`] with the given escaped and unescaped
-    /// representations.
-    #[must_use]
-    pub fn new(escaped: impl IntoStr, unescaped: impl IntoStr) -> Self {
-        Self {
-            escaped: Str::new(escaped),
-            unescaped: Str::new(unescaped),
         }
     }
 }
 
 /// The punctuation character. This would typically be a single character,
 /// but it can also be a sequence of characters like `=>`.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Punct {
     pub(crate) symbol: Str,
     pub(crate) leading_space: Space,
