@@ -13,7 +13,7 @@ impl Space {
     ///
     /// Make sure to explicitly enable [`Space::breakable`] if you want the
     /// space to be considered for turning into a newline when the content does
-    /// not fit on a single line, otherwise the space will always stay static
+    /// not fit on a single line. Otherwise, the space will always stay static
     /// and it'll never be turned into a line break.
     pub fn new() -> Self {
         Self {

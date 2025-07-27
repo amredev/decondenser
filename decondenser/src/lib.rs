@@ -68,7 +68,7 @@ impl Decondenser {
     /// Create a new [`Decondenser`] instance with the default configuration for
     /// general-purpose formatting of arbitrary text based on brackets nesting.
     ///
-    /// It strives to pvoride a reasonable set of defaults for most use cases,
+    /// It strives to provide a reasonable set of defaults for most use cases,
     /// and it's suitable to format the following types of text:
     ///
     /// - Classic Rust [`Debug`] output
@@ -78,12 +78,14 @@ impl Decondenser {
     ///
     /// The default formatting is guaranteed to be stable across patch versions,
     /// but it can change between minor and major versions.
+    ///
+    /// [`Debug`]: std::fmt::Debug
     pub fn generic() -> Self {
-        let group = |start, end| {
-            let space = || Space::new().breakable(true);
+        fn group(start: &'static str, end: &'static str, size: impl SpaceSize) -> Group {
+            let space = Space::new().size(size).breakable(true);
             Group::new(
-                Punct::new(start).trailing_space(space()),
-                Punct::new(end).leading_space(space()),
+                Punct::new(start).trailing_space(space.clone()),
+                Punct::new(end).leading_space(space),
             )
         };
 
@@ -91,11 +93,11 @@ impl Decondenser {
 
         Self::empty()
             .groups([
-                group("(", ")"),
-                group("[", "]"),
-                group("{", "}"),
+                group("(", ")", 0),
+                group("[", "]", 0),
+                group("{", "}", 1),
                 // Elixir's bitstrings
-                group("<<", ">>"),
+                group("<<", ">>", 0),
             ])
             .puncts([punct(","), punct(";")])
             .quotes([
@@ -191,7 +193,7 @@ impl Decondenser {
     /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
     /// ```
     ///
-    /// Importantly, a single white space character (' ') is always considered
+    /// Importantly, a single whitespace character (' ') is always considered
     /// to have the size of 1 regardless of the configured algorithm.
     ///
     /// # Semver Guarantees
@@ -243,7 +245,7 @@ impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
 }
 
 /// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
-/// also the special case of a [`usize`] that represents a number of whitespace
+/// the special case of a [`usize`] that represents a number of whitespace
 /// characters to use.
 pub trait Indent {
     /// Sealed method. Can't be called outside of this crate.

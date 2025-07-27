@@ -42,7 +42,7 @@ impl Group {
 /// foo(aaa, bbb, ccc, ddd);
 /// ```
 ///
-/// Note that beaking is optional. It only takes place if the content of the
+/// Note that breaking is optional. It only takes place if the content of the
 /// group can not fit on a single line. If it does fit - it won't be broken
 /// disregarding the [`BreakStyle`].
 #[derive(Debug, Clone)]
