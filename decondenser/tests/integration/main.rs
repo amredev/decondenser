@@ -64,6 +64,14 @@ fn snapshot_tests() {
             decondenser = decondenser.debug_layout(debug_layout);
         }
 
+        if let Some(indent) = test.get("indent") {
+            if let Some(indent) = indent.as_str() {
+                decondenser = decondenser.indent(indent.to_owned());
+            } else if let Some(indent) = indent.as_integer() {
+                decondenser = decondenser.indent(usize::try_from(indent).unwrap());
+            }
+        }
+
         test["output"] = decondenser.decondense(input).into();
     }
 

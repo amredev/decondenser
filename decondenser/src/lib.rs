@@ -31,7 +31,6 @@ pub struct Decondenser {
     indent: Str,
     max_line_size: usize,
     no_break_size: Option<usize>,
-    preserve_newlines: bool,
     groups: Vec<Group>,
     quotes: Vec<Quote>,
     puncts: Vec<Punct>,
@@ -54,7 +53,6 @@ impl Decondenser {
             indent: Str::n_spaces(4),
             max_line_size: 80,
             no_break_size: None,
-            preserve_newlines: false,
             groups: vec![],
             quotes: vec![],
             puncts: vec![],
@@ -76,31 +74,28 @@ impl Decondenser {
     /// - Classic Rust [`Debug`] output
     /// - Classic Elixir [`Inspect`](https://hexdocs.pm/elixir/Inspect.html)
     ///   output
+    /// - Python [`repr()`](https://docs.python.org/3/library/functions.html#repr)
     ///
     /// The default formatting is guaranteed to be stable across patch versions,
     /// but it can change between minor and major versions.
     pub fn generic() -> Self {
         let group = |start, end| {
-            let space = Space::new().breakable(true);
+            let space = || Space::new().breakable(true);
             Group::new(
-                Punct::new(start).trailing_space(space.clone()),
-                Punct::new(end).leading_space(space),
+                Punct::new(start).trailing_space(space()),
+                Punct::new(end).leading_space(space()),
             )
         };
 
-        let punct = |symbol| {
-            Punct::new(symbol).trailing_space(Space::new().breakable(SpaceFilter::min_size(1)))
-        };
+        let punct = |symbol| Punct::new(symbol).trailing_space(Space::new().breakable(true));
 
         Self::empty()
             .groups([
                 group("(", ")"),
                 group("[", "]"),
                 group("{", "}"),
-                // Elixir bitstrings
+                // Elixir's bitstrings
                 group("<<", ">>"),
-                // Many languages use these for generic types/functions
-                group("<", ">"),
             ])
             .puncts([punct(","), punct(";")])
             .quotes([
@@ -142,8 +137,8 @@ impl Decondenser {
     /// String to used to make a single level of indentation.
     ///
     /// Defaults to 4 spaces.
-    pub fn indent(mut self, value: impl IntoIndent) -> Self {
-        self.indent = value.into_indent(Sealed);
+    pub fn indent(mut self, value: impl Indent) -> Self {
+        self.indent = value.indent(Sealed);
         self
     }
 
@@ -176,14 +171,6 @@ impl Decondenser {
     /// [`max_line_size`]: Decondenser::max_line_size()
     pub fn no_break_size(mut self, value: usize) -> Self {
         self.no_break_size = Some(value);
-        self
-    }
-
-    /// Keep line breaks from the input in the output.
-    ///
-    /// By default, newlines will be treated as regular spaces.
-    pub fn preserve_newlines(mut self, value: bool) -> Self {
-        self.preserve_newlines = value;
         self
     }
 
@@ -258,19 +245,19 @@ impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
 /// A trait used to specify "string-like" values (`&str`, `String`, etc.) and
 /// also the special case of a [`usize`] that represents a number of whitespace
 /// characters to use.
-pub trait IntoIndent {
+pub trait Indent {
     /// Sealed method. Can't be called outside of this crate.
-    fn into_indent(self, _: Sealed) -> Str;
+    fn indent(self, _: Sealed) -> Str;
 }
 
-impl<T: IntoStr> IntoIndent for T {
-    fn into_indent(self, _: Sealed) -> Str {
+impl<T: IntoStr> Indent for T {
+    fn indent(self, _: Sealed) -> Str {
         Str::new(self)
     }
 }
 
-impl IntoIndent for usize {
-    fn into_indent(self, _: Sealed) -> Str {
+impl Indent for usize {
+    fn indent(self, _: Sealed) -> Str {
         Str::n_spaces(self)
     }
 }

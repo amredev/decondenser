@@ -3,7 +3,7 @@ mod into_core;
 
 use crate::{Files, Result};
 use anyhow::Context;
-use decondenser::{BreakStyle, SpaceFilter};
+use decondenser::BreakStyle;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -25,7 +25,6 @@ struct Formatting {
     indent: Option<String>,
     max_line_size: Option<usize>,
     no_break_size: Option<usize>,
-    preserve_newlines: Option<bool>,
 }
 
 struct Lang {
@@ -50,7 +49,7 @@ struct Punct {
 
 struct Space {
     size: Option<usize>,
-    breakable: Option<SpaceFilter>,
+    breakable: Option<bool>,
 }
 
 struct Quote {

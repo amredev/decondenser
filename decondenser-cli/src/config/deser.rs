@@ -1,6 +1,6 @@
 use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
 use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
-use decondenser::{BreakStyle, SpaceFilter};
+use decondenser::BreakStyle;
 
 impl Deserialize for Config {
     fn deserialize(value: Node) -> Result<Self> {
@@ -30,7 +30,6 @@ impl Formatting {
             indent: table.optional("indent"),
             max_line_size: table.optional("max_line_size"),
             no_break_size: table.optional("no_break_size"),
-            preserve_newlines: table.optional("preserve_newlines"),
         }
     }
 }
@@ -99,24 +98,9 @@ impl Deserialize for Space {
             })
             .object(|obj| Self {
                 size: obj.optional("size"),
-                breakable: obj
-                    .optional::<YamlSpaceFilter>("breakable")
-                    .map(|filter| filter.0),
+                breakable: obj.optional("breakable"),
             })
             .finish()
-    }
-}
-
-struct YamlSpaceFilter(SpaceFilter);
-
-impl Deserialize for YamlSpaceFilter {
-    fn deserialize(value: Node) -> Result<Self> {
-        value
-            .any_of()
-            .bool(|bool| Ok(SpaceFilter::bool(bool)))
-            .object(|obj| SpaceFilter::min_size(obj.required("min_size")))
-            .finish()
-            .map(Self)
     }
 }
 

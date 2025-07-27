@@ -61,6 +61,10 @@ cognitive_complexity = "allow"
 # Too intrusive. Additional `Default` trait impl is not always needed.
 new_without_default = "allow"
 
+# Too intrusive. Much of our code has no side-effects, but slapping
+# `#[must_use]` on every function is just too noisy for too little benefit.
+must_use_candidate = "allow"
+
 # Turn on lints that are allow by default in `clippy`.
 #
 # We set them to a `warn` level instead of `deny` to prevent clippy from exiting

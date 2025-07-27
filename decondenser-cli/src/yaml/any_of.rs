@@ -104,10 +104,6 @@ impl<T> AnyOfCtx<T> {
         )
     }
 
-    pub(crate) fn bool(self, f: impl FnOnce(bool) -> Result<T>) -> Self {
-        self.scalar_from_str(f)
-    }
-
     pub(crate) fn usize(self, f: impl FnOnce(usize) -> Result<T>) -> Self {
         self.scalar_from_str(f)
     }

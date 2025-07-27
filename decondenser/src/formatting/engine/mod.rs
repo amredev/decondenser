@@ -126,6 +126,16 @@ impl<'a> Formatter<'a> {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "
+            may be useful to support the feature of preserving newlines;
+            that feature had even been implemented during the first iterations
+            of this code, but was later removed as it wasn't found to be useful;
+            maybe this ability to do hard breaks at this level will come in handy
+            again, so keeping it in code for now
+        "
+    )]
     pub(crate) fn hard_break(&mut self, size: usize) {
         if size == 0 {
             return;

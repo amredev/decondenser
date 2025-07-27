@@ -59,7 +59,6 @@ impl Formatting {
             indent,
             max_line_size,
             no_break_size,
-            preserve_newlines,
         } = self;
 
         if let Some(indent) = indent {
@@ -72,10 +71,6 @@ impl Formatting {
 
         if let Some(no_break_size) = no_break_size {
             decondenser = decondenser.no_break_size(no_break_size);
-        }
-
-        if let Some(preserve_newlines) = preserve_newlines {
-            decondenser = decondenser.preserve_newlines(preserve_newlines);
         }
 
         decondenser

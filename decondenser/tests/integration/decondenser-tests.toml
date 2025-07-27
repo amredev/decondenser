@@ -6,14 +6,16 @@
 
 ["simple Rust debug output"]
 input = """
-Test {key1:"value1","key2": "value2"},[[1],[2],[3],],{"key1":"value1","key2":[123]}
+Test {key1:"value1","key2": "value2"}
+[[1],[2],[3],]
+{"key1":"value1","key2":[123]}
 
 Family { name: "Smith", members: [Member { name: "Alice", age: 30 }, Member { name: "Bob", age: 28 }] }
 """
 output = """
-Test {key1:"value1","key2": "value2"},[[1],[2],[3],],{
-    "key1":"value1","key2":[123]
-}
+Test {key1:"value1","key2": "value2"}
+[[1],[2],[3],]
+{"key1":"value1","key2":[123]}
 Family {
     name: "Smith",
     members: [
@@ -101,10 +103,8 @@ output = """
 const base64Compile = (str) =>
 WebAssembly.compile(
     typeof Buffer !== "undefined"
-    ? Buffer.from(str, "base64") : Uint8Array.from(
-        atob(str),
-        (b) => b.charCodeAt(0)
-    ),
+    ? Buffer.from(str, "base64")
+    : Uint8Array.from(atob(str), (b) => b.charCodeAt(0)),
 );
 """
 
