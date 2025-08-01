@@ -83,7 +83,6 @@ impl Str {
 
         SPACES
             .get(0..count)
-            // SAFETY: a sequence of space characters is guaranteed to be valid UTF8
             .map(Self::new)
             .unwrap_or_else(|| Self::new(" ".repeat(count)))
     }
@@ -96,32 +95,33 @@ mod inline_str {
         len: u8,
     }
 
-    /// This size of the inline buffer keeps the `Str` at 3 words size.
+    /// The chosen value keeps the [`super::Str`] at 3 words size.
     pub(super) const CAPACITY: usize = size_of::<usize>() * 2 - 1;
 
+    #[rustfmt::skip]
     impl InlineStr {
-        pub(super) fn new(str: &str) -> Option<Self> {
-            let Ok(len) = u8::try_from(str.len()) else {
-                return None;
-            };
-
-            if str.len() > CAPACITY {
-                return None;
-            }
-
-            let mut bytes = [0u8; CAPACITY];
-            bytes[..str.len()].copy_from_slice(str.as_bytes());
-
-            Some(Self { bytes, len })
-        }
-
         pub(super) fn as_str(&self) -> &str {
             let len = usize::from(self.len);
 
-            // SAFETY: `len` is guaranteed to be less than or equal to
-            // `CAPACITY`, and denote the end of the initialized valid
-            // UTF8 sequence. This invariant is enforced upon construction.
-            unsafe { std::str::from_utf8_unchecked(self.bytes.get_unchecked(..len)) }
+            // SAFETY: `new` guarantees `len <= CAPACITY` and that the first `len`
+            // bytes are valid UTF-8, but if you don't trust me... ──┐
+            unsafe {                                            //   │
+                let slice = self.bytes.get_unchecked(..len);    //   │
+                std::str::from_utf8_unchecked(slice)            //   │
+            }                                                   //   │
+        }                                                       //   │
+                                                                //   │
+        pub(super) fn new(str: &str) -> Option<Self> {          //   │
+            let len = u8::try_from(str.len()).ok()?;            //   │
+                                                                //   │
+            if str.len() > CAPACITY { // <─ here's len enforcement ──┤
+                return None;                                    //   │
+            }                                                   //   │
+                                                                //   │
+            let mut bytes = [0u8; CAPACITY];                    //   │
+            bytes[..str.len()].copy_from_slice(str.as_bytes()); // <─┘ ...and `bytes` is filled
+                                                                // with utf8 here, see now?
+            Some(Self { bytes, len })
         }
     }
 }
