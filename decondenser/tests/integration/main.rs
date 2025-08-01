@@ -1,6 +1,7 @@
 //! Integration tests for the decondenser library.
 
 use decondenser::Decondenser;
+use std::borrow::Cow;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -12,32 +13,8 @@ use std::str::FromStr;
 /// run. This way we can observe the changes to the output values in PR diffs
 /// and have them automatically updated via `scripts/update-tests.sh`.
 #[test]
-fn snapshot_tests() {
-    let tests_file = PathBuf::from_iter([
-        &std::env::var("CARGO_MANIFEST_DIR").unwrap(),
-        "tests",
-        "integration",
-        "formatting.toml",
-    ]);
-    let tests = std::fs::read_to_string(&tests_file).unwrap();
-
-    let mut tests = toml_edit::DocumentMut::from_str(&tests).unwrap();
-    let tests_table = tests.as_table_mut();
-
-    let solo_test = tests_table
-        .iter_mut()
-        .find(|(_, test)| test.get("solo").is_some());
-
-    let tests_to_run = if let Some(solo_test) = solo_test {
-        eprintln!("Running solo test: {}", solo_test.0);
-        vec![solo_test]
-    } else {
-        tests_table.iter_mut().collect()
-    };
-
-    for (_test_name, test) in tests_to_run {
-        let test = test.as_table_mut().unwrap();
-
+fn formatting() {
+    Snapshot::new("formatting.toml").update(|test| {
         let input = test["input"].as_str().unwrap();
 
         let mut decondenser = Decondenser::generic();
@@ -73,13 +50,90 @@ fn snapshot_tests() {
         }
 
         test["output"] = decondenser.decondense(input).into();
+    });
+}
+
+#[test]
+fn unescaping() {
+    Snapshot::new("unescaping.toml").update(|test| {
+        let input = test["input"].as_str().unwrap();
+        let output = decondenser::unescape(input);
+        let output = match output {
+            Cow::Borrowed(str) => format!("Borrowed({str})"),
+            Cow::Owned(str) => str,
+        };
+        test["output"] = output.into();
+    });
+}
+
+struct Snapshot {
+    path: PathBuf,
+    original: String,
+    doc: toml_edit::DocumentMut,
+}
+
+impl Snapshot {
+    fn new(file_name: &str) -> Self {
+        let path = PathBuf::from_iter([
+            &std::env::var("CARGO_MANIFEST_DIR").unwrap(),
+            "tests",
+            "integration",
+            file_name,
+        ]);
+
+        let file = std::fs::read_to_string(&path).unwrap();
+
+        let doc = toml_edit::DocumentMut::from_str(&file).unwrap();
+
+        Self {
+            path,
+            original: file,
+            doc,
+        }
     }
 
-    let actual = tests.to_string();
-    let actual = format_toml(&actual);
+    /// Updates the original snapshot file. It never fails, it only updates the
+    /// file. However, on CI we make sure that the snapshot file is fresh by
+    /// checking if it changes after the test run. This way we can observe the
+    /// changes to the output values in PR diffs and have them automatically
+    /// updated via `scripts/update-tests.sh`.
+    fn update(mut self, run_test: impl Fn(&mut toml_edit::Table)) {
+        let tests = self.doc.as_table_mut();
 
-    eprintln!("Updating tests at {}", tests_file.display());
-    std::fs::write(tests_file, actual).unwrap();
+        let solo = tests
+            .iter_mut()
+            .find(|(_, test)| test.get("solo").is_some());
+
+        let snapshot_file_name = self.path.file_name().unwrap().display();
+
+        {
+            let tests: &mut dyn Iterator<Item = _> = if let Some(solo) = solo {
+                eprintln!(
+                    "[{snapshot_file_name}] Running a single (solo-ed) test: {}",
+                    solo.0
+                );
+                &mut std::iter::once(solo)
+            } else {
+                &mut tests.iter_mut()
+            };
+
+            for (_test_name, test) in tests {
+                let test = test.as_table_mut().unwrap();
+                run_test(test);
+            }
+        }
+
+        let actual = self.doc.to_string();
+        let actual = format_toml(&actual);
+
+        if actual == self.original {
+            eprintln!("[{snapshot_file_name}] No changes to tests");
+            return;
+        }
+
+        eprintln!("[{snapshot_file_name}] Updating tests");
+        std::fs::write(self.path, actual).unwrap();
+    }
 }
 
 fn format_toml(input: &str) -> String {

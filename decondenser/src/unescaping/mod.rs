@@ -6,20 +6,20 @@ use std::borrow::Cow;
 /// Unescape the string by replacing the escape sequences with their actual
 /// characters.
 ///
-/// The superset of escapes grammar from the following languages is used:
+/// Uses the superset of string literls escaping grammar from the languages:
 /// - JSON
 /// - Rust
 /// - Elixir
 /// - Python
 ///
 /// By using the superset of the grammars, this function isn't 100% compliant
-/// with these languages' literals. I.e. it can unescape an escape, that is a
-/// valid Python escape such as `\N{name}` in Rust debug output since this
-/// function doesn't know the origin of its input string.
+/// with these languages' literals. I.e. it can unescape a Python escape such as
+/// `\N{name}` even if the input isn't related to Python, but it's, for example,
+/// a Rust debug output. This is because this function doesn't know the origin
+/// of its input string and doesn't attempt to detect it.
 ///
-/// So, this function is only suited as a debugging/testing tool where your
-/// input is free of such edge cases, and even if not - unescaping extra
-/// characters won't break anything.
+/// So, this function is only suited as a debugging/testing tool where
+/// unescaping extra characters doesn't break anything.
 pub fn unescape(input: &str) -> Cow<'_, str> {
     let mut tokens = l2::unescape(input);
     let Some(first) = tokens.next() else {
