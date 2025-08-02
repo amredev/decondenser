@@ -1,0 +1,68 @@
+[empty]
+input  = ""
+output = "Borrowed()"
+
+[noop]
+input  = "amre mrae rema"
+output = "Borrowed(amre mrae rema)"
+
+["simple escapes"]
+input = '''
+\n
+\t
+\r
+\\
+\"
+\'
+\#
+\$
+\0
+\a
+\b
+\v
+\f
+\e
+\s'
+'''
+
+output = """
+
+
+\t
+\r
+\\
+"
+'
+#
+$
+\u0000
+\u0007
+\b
+\u000B
+\f
+\u001B
+ '
+"""
+
+["skipping newline"]
+input = '''
+dinky \
+roseluck \
+
+\
+
+lilly
+'''
+output = """
+dinky roseluck 
+
+lilly
+"""
+
+["escaped JSON"]
+input = '''
+"tags" : "[{\"key\": \"ams:resourceOwner\", \"value\": \"AMS\"}]"
+'''
+output = """
+"tags" : "[{"key": "ams:resourceOwner", "value": "AMS"}]"
+"""

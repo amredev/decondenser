@@ -1,11 +1,11 @@
-use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
+use super::{Common, Config, Group, Lang, Punct, Quote, Space};
 use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
 use decondenser::BreakStyle;
 
 impl Deserialize for Config {
     fn deserialize(value: Node) -> Result<Self> {
         value.object(|obj| Self {
-            formatting: Formatting::flattened(obj),
+            common: Common::flattened(obj),
             langs: obj.optional("lang").unwrap_or_default(),
             debug_layout: obj.optional("debug_layout").unwrap_or_default(),
             debug_indent: obj.optional("debug_indent").unwrap_or_default(),
@@ -16,7 +16,7 @@ impl Deserialize for Config {
 impl Deserialize for Lang {
     fn deserialize(value: Node) -> Result<Self> {
         value.object(|table| Self {
-            formatting: Formatting::flattened(table),
+            common: Common::flattened(table),
             groups: table.optional("groups"),
             quotes: table.optional("quotes"),
             puncts: table.optional("puncts"),
@@ -24,13 +24,12 @@ impl Deserialize for Lang {
     }
 }
 
-impl Formatting {
+impl Common {
     fn flattened(table: &mut Object) -> Self {
         Self {
             indent: table.optional("indent"),
             max_line_size: table.optional("max_line_size"),
             no_break_size: table.optional("no_break_size"),
-            preserve_newlines: table.optional("preserve_newlines"),
         }
     }
 }
@@ -107,11 +106,15 @@ impl Deserialize for Space {
 
 struct YamlBreakStyle(BreakStyle);
 
-yaml::impl_deserialize_for_foreign_enum! {
-    YamlBreakStyle(BreakStyle {
-        Consistent => "consistent",
-        Compact => "compact",
-    })
+impl Deserialize for YamlBreakStyle {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .enumeration(&[
+                ("consistent", BreakStyle::consistent),
+                ("compact", BreakStyle::compact),
+            ])
+            .map(Self)
+    }
 }
 
 impl Deserialize for Quote {
@@ -119,16 +122,6 @@ impl Deserialize for Quote {
         value.object(|obj| Self {
             opening: obj.required("opening"),
             closing: obj.required("closing"),
-            escapes: obj.optional("escapes"),
-        })
-    }
-}
-
-impl Deserialize for Escape {
-    fn deserialize(value: Node) -> Result<Self> {
-        value.object(|obj| Self {
-            escaped: obj.required("escaped"),
-            unescaped: obj.required("unescaped"),
         })
     }
 }

@@ -15,7 +15,7 @@ clap               = { version = "4.5", default-features = false }
 codespan-reporting = { version = "0.12", default-features = false }
 hashlink           = "0.10"
 marked-yaml        = "0.8"
-toml_edit          = { version = "0.22", default-features = false }
+toml_edit          = { version = "0.23", default-features = false }
 unicode-width      = { version = "0.2.1", default-features = false }
 yaml-rust2         = "0.10"
 
@@ -57,6 +57,13 @@ type_complexity = "allow"
 
 # Too subjective. A long function is not always a bad function.
 cognitive_complexity = "allow"
+
+# Too intrusive. Additional `Default` trait impl is not always needed.
+new_without_default = "allow"
+
+# Too intrusive. Much of our code has no side-effects, but slapping
+# `#[must_use]` on every function is just too noisy for too little benefit.
+must_use_candidate = "allow"
 
 # Turn on lints that are allow by default in `clippy`.
 #

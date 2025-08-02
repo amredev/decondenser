@@ -1,4 +1,4 @@
-use super::{Config, Escape, Formatting, Group, Lang, Punct, Quote, Space};
+use super::{Common, Config, Group, Lang, Punct, Quote, Space};
 use crate::Result;
 use decondenser::Decondenser;
 use std::collections::{BTreeMap, BTreeSet};
@@ -8,7 +8,7 @@ const BUILTIN_LANGS: &[(&str, fn() -> Decondenser)] = &[("generic", Decondenser:
 impl Config {
     pub(crate) fn into_decondenser(self, lang: &str) -> Result<Decondenser> {
         let Self {
-            formatting,
+            common: formatting,
             mut langs,
             debug_layout,
             debug_indent,
@@ -53,13 +53,12 @@ impl Config {
     }
 }
 
-impl Formatting {
+impl Common {
     fn apply(self, mut decondenser: Decondenser) -> Decondenser {
         let Self {
             indent,
             max_line_size,
             no_break_size,
-            preserve_newlines,
         } = self;
 
         if let Some(indent) = indent {
@@ -74,10 +73,6 @@ impl Formatting {
             decondenser = decondenser.no_break_size(no_break_size);
         }
 
-        if let Some(preserve_newlines) = preserve_newlines {
-            decondenser = decondenser.preserve_newlines(preserve_newlines);
-        }
-
         decondenser
     }
 }
@@ -85,7 +80,7 @@ impl Formatting {
 impl Lang {
     fn apply(self, mut decondenser: Decondenser) -> Decondenser {
         let Self {
-            formatting,
+            common: formatting,
             groups,
             quotes,
             puncts,
@@ -151,13 +146,13 @@ impl Punct {
 
 impl Space {
     fn into_core(self) -> decondenser::Space {
-        let Self { size, breakable } = self;
+        let mut space = decondenser::Space::new();
 
-        let mut space = size
-            .map(decondenser::Space::fixed)
-            .unwrap_or_else(decondenser::Space::preserving);
+        if let Some(size) = self.size {
+            space = space.size(size);
+        }
 
-        if let Some(breakable) = breakable {
+        if let Some(breakable) = self.breakable {
             space = space.breakable(breakable);
         }
 
@@ -167,25 +162,7 @@ impl Space {
 
 impl Quote {
     fn into_core(self) -> decondenser::Quote {
-        let Self {
-            opening,
-            closing,
-            escapes,
-        } = self;
-
-        let mut quote = decondenser::Quote::new(opening, closing);
-
-        if let Some(escapes) = escapes {
-            quote = quote.escapes(escapes.into_iter().map(Escape::into_core));
-        }
-
-        quote
-    }
-}
-
-impl Escape {
-    fn into_core(self) -> decondenser::Escape {
-        let Self { escaped, unescaped } = self;
-        decondenser::Escape::new(escaped, unescaped)
+        let Self { opening, closing } = self;
+        decondenser::Quote::new(opening, closing)
     }
 }

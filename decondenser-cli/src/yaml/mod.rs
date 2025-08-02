@@ -1,10 +1,7 @@
 mod any_of;
 mod error;
 
-pub(crate) mod enums;
-
 pub(crate) use any_of::{NodeExt, Object};
-pub(crate) use enums::impl_deserialize_for_foreign_enum;
 pub(crate) use error::{Errors, Result};
 pub(crate) use marked_yaml::Node;
 
@@ -43,22 +40,28 @@ impl Deserialize for usize {
     }
 }
 
+impl Deserialize for char {
+    fn deserialize(value: Node) -> Result<Self> {
+        value.scalar()
+    }
+}
+
 impl<T: Deserialize> Deserialize for Vec<T> {
     fn deserialize(value: Node) -> Result<Self> {
         value
             .any_of()
             .array(|array| {
                 let mut errors = Errors::default();
-                let mut oks = Self::with_capacity(array.len());
+                let mut output = Self::with_capacity(array.len());
 
                 for value in array {
                     match T::deserialize(value) {
-                        Ok(ok) => oks.push(ok),
+                        Ok(value) => output.push(value),
                         Err(err) => errors.extend([err]),
                     }
                 }
 
-                errors.into_result().map(|()| oks)
+                errors.into_result().map(|()| output)
             })
             .finish()
     }
@@ -70,18 +73,16 @@ impl<T: Deserialize> Deserialize for BTreeMap<String, T> {
             .any_of()
             .dict(|dict| {
                 let mut errors = Errors::default();
-                let mut oks = Self::new();
+                let mut output = Self::new();
 
                 for (key, value) in dict {
                     match T::deserialize(value) {
-                        Ok(ok) => {
-                            oks.insert(key.as_str().to_owned(), ok);
-                        }
+                        Ok(value) => drop(output.insert(key.as_str().to_owned(), value)),
                         Err(err) => errors.extend([err]),
                     }
                 }
 
-                errors.into_result().map(|()| oks)
+                errors.into_result().map(|()| output)
             })
             .finish()
     }

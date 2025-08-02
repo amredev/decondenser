@@ -8,7 +8,7 @@ pub(crate) enum TokenTree<'a> {
     },
 
     /// Represents 1 or many subsequent `[\r]\n` sequences
-    NewLine {
+    Newline {
         start: usize,
     },
 
@@ -24,7 +24,7 @@ pub(crate) enum TokenTree<'a> {
 impl TokenTree<'_> {
     pub(crate) fn start(&self) -> usize {
         match self {
-            Self::Space { start } | Self::NewLine { start } | Self::Raw { start } => *start,
+            Self::Space { start } | Self::Newline { start } | Self::Raw { start } => *start,
             Self::Punct(punct) => punct.start,
             Self::Group(group) => group.opening,
             Self::Quoted(quoted) => quoted.opening,
@@ -36,7 +36,7 @@ impl fmt::Debug for TokenTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Space { start } => write!(f, "space {start}"),
-            Self::NewLine { start } => write!(f, "newline {start}"),
+            Self::Newline { start } => write!(f, "newline {start}"),
             Self::Raw { start } => write!(f, "raw {start}"),
             Self::Punct(punct) => write!(f, "punct{punct:#?}"),
             Self::Group(group) => write!(f, "group{group:#?}"),

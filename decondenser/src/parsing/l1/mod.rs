@@ -1,10 +1,9 @@
-mod cursor;
 mod token_tree;
 
 pub(crate) use token_tree::*;
 
+use crate::cursor::Cursor;
 use crate::{Decondenser, config};
-use cursor::Cursor;
 use std::mem;
 
 pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTree<'a>> {
@@ -27,9 +26,9 @@ impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
             if char == '\n' {
-                if !matches!(self.output.last(), Some(TokenTree::NewLine { .. })) {
+                if !matches!(self.output.last(), Some(TokenTree::Newline { .. })) {
                     let start = self.cursor.byte_offset();
-                    self.output.push(TokenTree::NewLine { start });
+                    self.output.push(TokenTree::Newline { start });
                 }
 
                 self.cursor.next();
@@ -112,13 +111,19 @@ impl<'a> Parser<'a> {
         let mut content = vec![];
 
         let closing = loop {
-            let escape = config
-                .escapes
-                .iter()
-                .find_map(|escape| self.cursor.strip_prefix(&escape.escaped));
+            if self.cursor.peek() == Some(self.config.escape_char) {
+                let start = self.cursor.byte_offset();
+                self.cursor.next();
 
-            if let Some(start) = escape {
+                // Try to strip the next sequence of the closing quote if this
+                // is what's escaped here. If not - we assume the escape
+                // sequence is one character long.
+                if self.cursor.strip_prefix(&config.closing).is_none() {
+                    self.cursor.next();
+                }
+
                 content.push(QuotedContent::Escape { start });
+
                 continue;
             }
 

@@ -1,11 +1,10 @@
-pub(super) use super::measured_str::MeasuredStr;
-pub(super) use crate::BreakStyle;
-
 use super::printer::{Printer, PrinterConfig};
 use super::sliding_deque::SlidingDeque;
 use super::token::{Measurement, Size, Token};
 use crate::Decondenser;
+use crate::formatting::BreakStyle;
 use crate::utils::debug_panic;
+use crate::visual_size::MeasuredStr;
 use std::collections::VecDeque;
 use std::fmt;
 
@@ -82,7 +81,7 @@ impl<'a> NormalizedFormatter<'a> {
                 no_break_size: config.no_break_size.unwrap_or(config.max_line_size / 2),
                 debug_layout: config.debug_layout,
                 debug_indent: config.debug_indent,
-                indent_str: MeasuredStr::new(&config.indent, config.visual_size),
+                indent_str: config.visual_size.measured_str(&config.indent),
             }),
         }
     }
@@ -214,9 +213,7 @@ impl<'a> NormalizedFormatter<'a> {
                     };
                     self.printer.begin(break_style, distance);
                 }
-                Token::Indent(diff) => {
-                    self.printer.indent(diff);
-                }
+                Token::Indent(diff) => self.printer.indent(diff),
                 Token::End => {
                     if self.tokens.starts_with_unmeasured() {
                         // This `End` is still staged for its group measurement,
@@ -318,9 +315,7 @@ impl fmt::Debug for SlidingDeque<Token<'_>> {
                     writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
                     indent = indent.saturating_sub(indent_size);
                 }
-                _ => {
-                    writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?;
-                }
+                _ => writeln!(f, "[{i:>2}] {:indent$}{entry:?}", "")?,
             }
         }
 

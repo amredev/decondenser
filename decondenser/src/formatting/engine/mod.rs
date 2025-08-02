@@ -24,16 +24,15 @@
 //! Also, this blog post by @mcyoung is a great resource for understanding:
 //! <https://mcyoung.xyz/2025/03/11/formatters/>
 
-mod measured_str;
 mod normalized;
 mod printer;
 mod sliding_deque;
 mod token;
 
-pub(crate) use measured_str::MeasuredStr;
+pub(crate) use crate::visual_size::MeasuredStr;
 
 use self::normalized::NormalizedFormatter;
-use crate::BreakStyle;
+use crate::formatting::BreakStyle;
 
 /// A generic formatter that works in terms of groups, raw strings, spaces,
 /// breaks, and indent. This struct is the top-level normalization layer around
@@ -127,6 +126,16 @@ impl<'a> Formatter<'a> {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "
+            may be useful to support the feature of preserving newlines;
+            that feature had even been implemented during the first iterations
+            of this code, but was later removed as it wasn't found to be useful;
+            maybe this ability to do hard breaks at this level will come in handy
+            again, so keeping it in code for now
+        "
+    )]
     pub(crate) fn hard_break(&mut self, size: usize) {
         if size == 0 {
             return;
