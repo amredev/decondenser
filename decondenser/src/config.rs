@@ -27,7 +27,7 @@ impl Group {
 
     /// Sets the [`BreakStyle`] for this group. See its docs for more.
     ///
-    /// Default is [`BreakStyle::Consistent`].
+    /// Default is [`BreakStyle::consistent()`].
     #[must_use]
     pub fn break_style(mut self, value: BreakStyle) -> Self {
         self.break_style = value;

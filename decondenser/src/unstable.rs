@@ -1,8 +1,8 @@
 #[cfg(feature = "unstable")]
 impl super::Decondenser {
     /// Display the layout using special characters in the output:
-    /// - `«»` - groups with [`crate::BreakStyle::Consistent`]
-    /// - `‹›` - groups with [`crate::BreakStyle::Compact`]
+    /// - `«»` - groups with [`crate::BreakStyle::consistent()`]
+    /// - `‹›` - groups with [`crate::BreakStyle::compact()`]
     pub fn debug_layout(mut self, value: bool) -> Self {
         self.debug_layout = value;
         self
