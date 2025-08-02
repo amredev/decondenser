@@ -3,14 +3,19 @@ use crate::sealed::Sealed;
 use std::fmt;
 use std::ops::Deref;
 
-/// Poor-man's small-string optimization
+/// Poor-man's small-string optimization.
 #[expect(unnameable_types)]
+#[derive(Clone)]
 pub struct Str {
     kind: StrKind,
 }
 
+#[cfg(test)]
+const _: () = assert!(size_of::<Str>() == size_of::<usize>() * 2);
+
+#[derive(Clone)]
 enum StrKind {
-    Heap(String),
+    Heap(Box<str>),
     Inline(InlineStr),
 }
 
@@ -26,7 +31,7 @@ impl IntoStr for String {
         Str {
             // The string is already allocated. No need to move it into an
             // inline buffer, just keep it as it is.
-            kind: StrKind::Heap(self),
+            kind: StrKind::Heap(self.into()),
         }
     }
 }
@@ -38,7 +43,7 @@ impl IntoStr for &str {
                 kind: StrKind::Inline(inline),
             })
             .unwrap_or_else(|| Str {
-                kind: StrKind::Heap(self.to_owned()),
+                kind: StrKind::Heap(self.into()),
             })
     }
 }
@@ -90,13 +95,14 @@ impl Str {
 
 /// A boundary for unsafe code that relies on the invariants of private fields
 mod inline_str {
+    #[derive(Clone)]
     pub(super) struct InlineStr {
         bytes: [u8; CAPACITY],
         len: u8,
     }
 
-    /// The chosen value keeps the [`super::Str`] at 3 words size.
-    pub(super) const CAPACITY: usize = size_of::<usize>() * 2 - 1;
+    /// The chosen value keeps the [`super::Str`] at 2 words in size.
+    pub(super) const CAPACITY: usize = size_of::<usize>() - 1;
 
     #[rustfmt::skip]
     impl InlineStr {

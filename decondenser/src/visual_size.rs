@@ -1,9 +1,11 @@
 use crate::VisualSize;
 use std::fmt;
 use std::ops::Deref;
+use std::sync::Arc;
 
+#[derive(Clone)]
 pub(crate) struct BoxedVisualSize {
-    inner: Box<dyn VisualSize>,
+    inner: Arc<dyn VisualSize>,
 
     /// Store the additional info about the type of the function for debugging
     /// purposes.
@@ -13,7 +15,7 @@ pub(crate) struct BoxedVisualSize {
 impl BoxedVisualSize {
     pub(crate) fn new<T: VisualSize>(inner: T) -> Self {
         Self {
-            inner: Box::new(inner),
+            inner: Arc::new(inner),
             name: std::any::type_name::<T>(),
         }
     }

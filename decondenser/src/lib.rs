@@ -27,7 +27,7 @@ use self::visual_size::BoxedVisualSize;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
 pub struct Decondenser {
     indent: Str,
@@ -35,10 +35,8 @@ pub struct Decondenser {
     no_break_size: Option<usize>,
     groups: Vec<Group>,
     puncts: Vec<Punct>,
-
     quotes: Vec<Quote>,
     escape_char: char,
-
     visual_size: BoxedVisualSize,
     debug_layout: bool,
     debug_indent: bool,
@@ -53,14 +51,13 @@ impl Decondenser {
     /// punctuation sequences configured. It is only useful as a base for custom
     /// configurations. Use [`Decondenser::generic()`] to get a general-purpose
     /// [`Decondenser`] configured for free-form text formatting.
-    pub fn empty() -> Self {
+    pub fn new() -> Self {
         Self {
             indent: Str::n_spaces(4),
             max_line_size: 80,
             no_break_size: None,
             groups: vec![],
             puncts: vec![],
-
             quotes: vec![],
 
             // Not sure if it makes sense to make this configurable, and if so
@@ -105,7 +102,7 @@ impl Decondenser {
 
         let punct = |symbol| Punct::new(symbol).trailing_space(Space::new().breakable(true));
 
-        Self::empty()
+        Self::new()
             .groups([
                 group("(", ")", 0),
                 group("[", "]", 0),

@@ -14,8 +14,8 @@ fn cli() -> clap::Command {
         .long_about(None)
         .version(env!("CARGO_PKG_VERSION"))
         .styles(crate::styles::CLI_STYLES)
-        .arg(arg!(--input <INPUT> "file path or - for stdin").default_value("-"))
-        .arg(arg!(--output <OUTPUT> "file path or - for stdout").default_value("-"))
+        .arg(arg!(-i --input <INPUT> "file path or - for stdin").default_value("-"))
+        .arg(arg!(-o --output <OUTPUT> "file path or - for stdout").default_value("-"))
         .arg(
             arg!(
                 --config <CONFIG>
