@@ -13,7 +13,7 @@ repository = { workspace = true }
 
 [dependencies]
 decondenser    = { workspace = true }
-wit-bindgen-rt = { version = "0.42.1", default-features = false }
+wit-bindgen-rt = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]

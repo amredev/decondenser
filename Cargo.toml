@@ -17,7 +17,7 @@ hashlink           = "0.10"
 marked-yaml        = "0.8"
 toml_edit          = { version = "0.23", default-features = false }
 unicode-width      = { version = "0.2.1", default-features = false }
-yaml-rust2         = "0.10"
+wit-bindgen-rt     = { version = "0.43", default-features = true }
 
 # path
 decondenser = { path = "decondenser" }
