@@ -9,7 +9,6 @@ mod parsing;
 mod sealed;
 mod space;
 mod str;
-mod unescaping;
 mod utils;
 mod visual_size;
 
@@ -17,17 +16,18 @@ mod visual_size;
 mod unstable;
 
 pub use self::config::{BreakStyle, Group, Punct, Quote};
+pub use self::parsing::quoted::unescape;
 pub use self::space::{IntoSpace, Space, SpaceSize};
 pub use self::str::IntoStr;
-pub use self::unescaping::unescape;
+pub use self::visual_size::VisualSize;
 
 use self::sealed::Sealed;
 use self::str::Str;
-use self::visual_size::BoxedVisualSize;
+use self::visual_size::ArcVisualSize;
 
 /// Provide configuration and run [`Decondenser::decondense()`] to format the
 /// input.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
 pub struct Decondenser {
     indent: Str,
@@ -35,11 +35,9 @@ pub struct Decondenser {
     no_break_size: Option<usize>,
     groups: Vec<Group>,
     puncts: Vec<Punct>,
-
     quotes: Vec<Quote>,
     escape_char: char,
-
-    visual_size: BoxedVisualSize,
+    visual_size: ArcVisualSize,
     debug_layout: bool,
     debug_indent: bool,
 }
@@ -49,18 +47,18 @@ fn default_visual_size(str: &str) -> usize {
 }
 
 impl Decondenser {
-    /// Creates an empty [`Decondenser`] instance without any groups, quotes, or
-    /// punctuation sequences configured. It is only useful as a base for custom
-    /// configurations. Use [`Decondenser::generic()`] to get a general-purpose
-    /// [`Decondenser`] configured for free-form text formatting.
-    pub fn empty() -> Self {
+    /// Creates an base [`Decondenser`] instance without any groups, quotes, or
+    /// punctuation sequences configured. It is only useful as a starting point
+    /// for custom configurations. Use [`Decondenser::generic()`] to get a
+    /// general-purpose [`Decondenser`] configured for free-form text
+    /// formatting.
+    pub fn base() -> Self {
         Self {
             indent: Str::n_spaces(4),
             max_line_size: 80,
             no_break_size: None,
             groups: vec![],
             puncts: vec![],
-
             quotes: vec![],
 
             // Not sure if it makes sense to make this configurable, and if so
@@ -73,7 +71,7 @@ impl Decondenser {
             // Not using closure syntax here for the `default_visual_size` to
             // make its type name (that is used in `VisualSizeAlgorithm` Debug
             // impl) much nicer.
-            visual_size: BoxedVisualSize::new(default_visual_size),
+            visual_size: ArcVisualSize::new(default_visual_size),
             debug_layout: false,
             debug_indent: false,
         }
@@ -95,17 +93,17 @@ impl Decondenser {
     ///
     /// [`Debug`]: std::fmt::Debug
     pub fn generic() -> Self {
-        fn group(start: &'static str, end: &'static str, size: impl SpaceSize) -> Group {
-            let space = Space::new().size(size).breakable(true);
+        fn group(start: &'static str, end: &'static str, padding: impl SpaceSize) -> Group {
+            let padding = Space::new().size(padding).breakable(true);
             Group::new(
-                Punct::new(start).trailing_space(space.clone()),
-                Punct::new(end).leading_space(space),
+                Punct::new(start).trailing_space(padding.clone()),
+                Punct::new(end).leading_space(padding),
             )
         }
 
         let punct = |symbol| Punct::new(symbol).trailing_space(Space::new().breakable(true));
 
-        Self::empty()
+        Self::base()
             .groups([
                 group("(", ")", 0),
                 group("[", "]", 0),
@@ -114,7 +112,12 @@ impl Decondenser {
                 group("<<", ">>", 0),
             ])
             .puncts([punct(","), punct(";")])
-            .quotes([Quote::new("\"", "\""), Quote::new("'", "'")])
+            .quotes([
+                Quote::new("\"\"\"", "\"\"\""),
+                Quote::new("\"", "\""),
+                Quote::new("'''", "'''"),
+                Quote::new("'", "'"),
+            ])
     }
 
     /// Pretty-print any text based on brackets nesting.
@@ -185,7 +188,7 @@ impl Decondenser {
     ///
     /// ```
     /// # use decondenser::Decondenser;
-    /// # let decondenser = Decondenser::empty();
+    /// # let decondenser = Decondenser::base();
     /// #
     /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
     /// ```
@@ -200,7 +203,7 @@ impl Decondenser {
     ///
     /// [`unicode_width`]: https://docs.rs/unicode-width
     pub fn visual_size(mut self, value: impl VisualSize) -> Self {
-        self.visual_size = BoxedVisualSize::new(value);
+        self.visual_size = ArcVisualSize::new(value);
         self
     }
 
@@ -220,23 +223,6 @@ impl Decondenser {
     pub fn quotes(mut self, value: impl IntoIterator<Item = Quote>) -> Self {
         self.quotes = Vec::from_iter(value);
         self
-    }
-}
-
-/// Defines the algorithm for calculating the "visual" size of a string. See
-/// [`Decondenser::visual_size`] for more details.
-///
-/// You probably don't want to implement this trait by hand, and instead use a
-/// closure since this trait is implemented for `Fn(&str) -> usize`.
-pub trait VisualSize: Send + Sync + 'static {
-    /// The main implementation. It is assumed to be cheap, and it'll be called
-    /// many times during the formatting.
-    fn visual_size(&self, str: &str) -> usize;
-}
-
-impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
-    fn visual_size(&self, str: &str) -> usize {
-        self(str)
     }
 }
 

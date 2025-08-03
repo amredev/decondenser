@@ -56,7 +56,7 @@ impl<'i> FormattingCtx<'_, 'i> {
         self.fmt.raw(self.measured_str(&quoted.config.opening));
 
         for content in &quoted.content {
-            self.fmt.raw(self.measured_str(content.text()));
+            self.fmt.raw(self.measured_str(content.source()));
         }
 
         if quoted.closed {
@@ -93,7 +93,7 @@ impl<'i> FormattingCtx<'_, 'i> {
     }
 
     fn on_group(&mut self, leading_space: Option<&'i str>, group: &'i parsing::l2::Group<'i>) {
-        let config = &group.config;
+        let config = group.config;
 
         self.fmt.begin(group.config.break_style.0);
 
@@ -103,11 +103,12 @@ impl<'i> FormattingCtx<'_, 'i> {
             .all(|token| matches!(token, TokenTree::Newline(_) | TokenTree::Space(_)));
 
         // Trim blank-only groups to a single line always
-        let mut tokens = if is_empty_group {
-            [].iter()
-        } else {
-            group.content.iter()
-        };
+        if is_empty_group {
+            self.empty_group(leading_space, group);
+            return;
+        }
+
+        let mut tokens = group.content.iter();
 
         let closing_punct_leading_blank = tokens
             .clone()
@@ -131,6 +132,20 @@ impl<'i> FormattingCtx<'_, 'i> {
         }
 
         self.fmt.end();
+    }
+
+    // Special case for an empty group where we don't want any internal space,
+    // and instead have a pair of adjacent opening and closing punctuation.
+    fn empty_group(&mut self, leading_space: Option<&'i str>, group: &parsing::l2::Group<'i>) {
+        let config = &group.config;
+        self.space_near_punct(leading_space, &config.opening.leading_space);
+        self.fmt.raw(self.measured_str(&config.opening.symbol));
+
+        if group.closed {
+            self.fmt.raw(self.measured_str(&config.closing.symbol));
+            let trailing_space = self.tokens.optional_space();
+            self.space_near_punct(trailing_space, &config.closing.trailing_space);
+        }
     }
 
     fn on_punct(&mut self, leading_space: Option<&'i str>, punct: &'i crate::Punct) {

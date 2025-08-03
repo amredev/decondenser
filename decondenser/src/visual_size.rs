@@ -1,19 +1,39 @@
-use crate::VisualSize;
 use std::fmt;
 use std::ops::Deref;
+use std::sync::Arc;
 
-pub(crate) struct BoxedVisualSize {
-    inner: Box<dyn VisualSize>,
+/// Defines the algorithm for calculating the "visual" size of a string. See
+/// [`Decondenser::visual_size`] for more details.
+///
+/// You probably don't want to implement this trait by hand, and instead use a
+/// closure since this trait is implemented for `Fn(&str) -> usize`.
+///
+/// [`Decondenser::visual_size`]: crate::Decondenser::visual_size
+pub trait VisualSize: Send + Sync + 'static {
+    /// The main implementation. It is assumed to be cheap, and it'll be called
+    /// many times during the formatting.
+    fn visual_size(&self, str: &str) -> usize;
+}
+
+impl<F: Fn(&str) -> usize + Send + Sync + 'static> VisualSize for F {
+    fn visual_size(&self, str: &str) -> usize {
+        self(str)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct ArcVisualSize {
+    inner: Arc<dyn VisualSize>,
 
     /// Store the additional info about the type of the function for debugging
     /// purposes.
     name: &'static str,
 }
 
-impl BoxedVisualSize {
+impl ArcVisualSize {
     pub(crate) fn new<T: VisualSize>(inner: T) -> Self {
         Self {
-            inner: Box::new(inner),
+            inner: Arc::new(inner),
             name: std::any::type_name::<T>(),
         }
     }
@@ -30,7 +50,7 @@ impl BoxedVisualSize {
     }
 }
 
-impl fmt::Debug for BoxedVisualSize {
+impl fmt::Debug for ArcVisualSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name)
     }

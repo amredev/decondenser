@@ -1,13 +1,14 @@
 use crate::cursor::Cursor;
+use std::fmt;
 
 #[derive(Clone, Copy)]
-pub(super) enum Token {
+pub(crate) enum Token {
     Raw(usize),
     Escape(Escape),
 }
 
 impl Token {
-    pub(super) fn start(self) -> usize {
+    pub(crate) fn start(self) -> usize {
         match self {
             Self::Raw(start) => start,
             Self::Escape(escape) => escape.start,
@@ -22,17 +23,26 @@ impl Token {
     }
 }
 
-#[derive(Clone, Copy)]
-pub(super) struct Escape {
-    /// The input escape including the prefix character
-    pub(super) start: usize,
-
-    /// `None` means the escape isn't valid
-    pub(super) unescaped: Unescaped,
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Raw(start) => write!(f, "qraw:{start}"),
+            Self::Escape(escape) => write!(f, "qesc:{} {:?}", escape.start, escape.unescaped),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum Unescaped {
+pub(crate) struct Escape {
+    /// The input escape including the prefix character
+    pub(crate) start: usize,
+
+    /// `None` means the escape isn't valid
+    pub(crate) unescaped: Unescaped,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Unescaped {
     Invalid,
     Char(char),
 
@@ -49,14 +59,17 @@ impl Unescaped {
     }
 }
 
-pub(super) struct Lexer<'i> {
+pub(crate) struct Lexer<'i> {
     cursor: Cursor<'i>,
+    escape_char: char,
+    terminator: Option<&'i str>,
     state: State,
 }
 
 enum State {
     Normal,
     Escape(usize),
+    End(usize),
 }
 
 impl Iterator for Lexer<'_> {
@@ -66,16 +79,29 @@ impl Iterator for Lexer<'_> {
         match self.state {
             State::Normal => self.normal(),
             State::Escape(start) => Some(self.escape(start)),
+            State::End(_) => None,
         }
     }
 }
 
 impl<'i> Lexer<'i> {
-    pub(super) fn new(input: &'i str) -> Self {
+    pub(crate) fn new(cursor: Cursor<'i>) -> Self {
         Self {
-            cursor: Cursor::new(input),
+            cursor,
+            escape_char: '\\',
+            terminator: None,
             state: State::Normal,
         }
+    }
+
+    pub(crate) fn with_escape_char(mut self, escape_char: char) -> Self {
+        self.escape_char = escape_char;
+        self
+    }
+
+    pub(crate) fn with_terminator(mut self, terminator: &'i str) -> Self {
+        self.terminator = Some(terminator);
+        self
     }
 
     fn escape(&mut self, start: usize) -> Token {
@@ -107,9 +133,7 @@ impl<'i> Lexer<'i> {
             _ => return Token::invalid_escape(start),
         };
 
-        let escape = Escape { start, unescaped };
-
-        Token::Escape(escape)
+        Token::Escape(Escape { start, unescaped })
     }
 
     fn hex(&mut self) -> Option<char> {
@@ -162,18 +186,50 @@ impl<'i> Lexer<'i> {
 
         let start = self.cursor.byte_offset();
 
-        let escape_char = '\\';
+        let escape_start = loop {
+            if let Some(terminator) = self.terminator {
+                if let Some(offset) = self.cursor.strip_prefix(terminator) {
+                    self.state = State::End(offset);
+                    return (start != offset).then_some(Token::Raw(start));
+                }
+            }
 
-        let Some(escape) = self.cursor.find(escape_char) else {
-            return Some(Token::Raw(start));
+            let offset = self.cursor.byte_offset();
+
+            let Some(char) = self.cursor.next() else {
+                return (start != offset).then_some(Token::Raw(start));
+            };
+
+            if char == self.escape_char {
+                break offset;
+            }
         };
 
-        if start == self.cursor.byte_offset() {
-            return Some(self.escape(escape));
+        if start == escape_start {
+            return Some(self.escape(escape_start));
         }
 
-        self.state = State::Escape(escape);
+        self.state = State::Escape(escape_start);
 
         Some(Token::Raw(start))
     }
+
+    pub(crate) fn finish(self) -> LexingFinish<'i> {
+        LexingFinish {
+            terminator: match self.state {
+                State::End(end) => Some(end),
+                _ => None,
+            },
+            cursor: self.cursor,
+        }
+    }
+}
+
+pub(crate) struct LexingFinish<'i> {
+    /// Offset of the terminating sequence if one was configured via
+    /// [`Lexer::with_terminator()`].
+    pub(crate) terminator: Option<usize>,
+
+    /// The cursor in the state right after the last token was parsed.
+    pub(crate) cursor: Cursor<'i>,
 }

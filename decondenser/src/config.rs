@@ -7,7 +7,7 @@ use crate::{IntoSpace, Space};
 ///
 /// Can be broken into multiple lines if it takes too much space to fit on a
 /// single line.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Group {
     pub(crate) opening: Punct,
     pub(crate) closing: Punct,
@@ -92,7 +92,7 @@ impl BreakStyle {
 /// The content is delimited by the opening and closing sequences, and can
 /// contain special characters that are escaped using the provided escape
 /// sequences logic.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Quote {
     pub(crate) opening: Str,
     pub(crate) closing: Str,
@@ -111,7 +111,7 @@ impl Quote {
 
 /// The punctuation character. This would typically be a single character,
 /// but it can also be a sequence of characters like `=>`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Punct {
     pub(crate) symbol: Str,
     pub(crate) leading_space: Space,

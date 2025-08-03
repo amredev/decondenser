@@ -1,5 +1,5 @@
-mod l1;
-mod l2;
+pub(crate) mod l1;
+pub(crate) mod l2;
 
 use std::borrow::Cow;
 
@@ -23,17 +23,17 @@ use std::borrow::Cow;
 pub fn unescape(input: &str) -> Cow<'_, str> {
     let mut tokens = l2::unescape(input);
     let Some(first) = tokens.next() else {
-        return "".into();
+        return Cow::Borrowed("");
     };
 
     // Optimize for the case of no escapes
     let Some(second) = tokens.next() else {
         return match first {
-            l2::Token::Raw(str) => str.into(),
+            l2::Token::Raw(str) => Cow::Borrowed(str),
             l2::Token::Escape(_) => {
                 let mut output = String::new();
                 write_token(&mut output, first);
-                output.into()
+                Cow::Owned(output)
             }
         };
     };
@@ -56,7 +56,7 @@ fn write_token(buf: &mut String, token: l2::Token<'_>) {
         l2::Token::Escape(escape) => match escape.unescaped {
             l1::Unescaped::Char(char) => buf.push(char),
             l1::Unescaped::Ignore => {}
-            l1::Unescaped::Invalid => buf.push_str(escape.escaped),
+            l1::Unescaped::Invalid => buf.push_str(escape.source),
         },
     }
 }

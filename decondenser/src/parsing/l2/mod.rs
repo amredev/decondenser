@@ -56,13 +56,18 @@ impl<'a> TokenTreesFromL1<'a> {
                             .iter()
                             .enumerate()
                             .map(|(i, content)| {
-                                let next = quoted.content.get(i + 1);
+                                let next = quoted.content.get(i + 1).copied();
                                 let end = next.map(l1::QuotedContent::start).unwrap_or(content_end);
-                                let text = &input[content.start()..end];
+                                let source = &input[content.start()..end];
 
                                 match content {
-                                    l1::QuotedContent::Raw { .. } => QuotedContent::Raw(text),
-                                    l1::QuotedContent::Escape { .. } => QuotedContent::Escape(text),
+                                    l1::QuotedContent::Raw { .. } => QuotedContent::Raw(source),
+                                    l1::QuotedContent::Escape(escape) => {
+                                        QuotedContent::Escape(Escape {
+                                            source,
+                                            unescaped: escape.unescaped,
+                                        })
+                                    }
                                 }
                             })
                             .collect();

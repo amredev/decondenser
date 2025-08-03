@@ -108,43 +108,19 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_quoted(&mut self, opening: usize, config: &'a config::Quote) {
-        let mut content = vec![];
+        let mut lexer = crate::parsing::quoted::l1::Lexer::new(self.cursor.clone())
+            .with_escape_char(self.config.escape_char)
+            .with_terminator(&config.closing);
 
-        let closing = loop {
-            if self.cursor.peek() == Some(self.config.escape_char) {
-                let start = self.cursor.byte_offset();
-                self.cursor.next();
+        let content = (&mut lexer).collect();
+        let finish = lexer.finish();
 
-                // Try to strip the next sequence of the closing quote if this
-                // is what's escaped here. If not - we assume the escape
-                // sequence is one character long.
-                if self.cursor.strip_prefix(&config.closing).is_none() {
-                    self.cursor.next();
-                }
-
-                content.push(QuotedContent::Escape { start });
-
-                continue;
-            }
-
-            if let Some(closing) = self.cursor.strip_prefix(&config.closing) {
-                break Some(closing);
-            }
-
-            if !matches!(content.last(), Some(QuotedContent::Raw { .. })) {
-                let start = self.cursor.byte_offset();
-                content.push(QuotedContent::Raw { start });
-            }
-
-            if self.cursor.next().is_none() {
-                break None;
-            }
-        };
+        self.cursor = finish.cursor;
 
         let quoted = Quoted {
             opening,
             content,
-            closing,
+            closing: finish.terminator,
             config,
         };
 

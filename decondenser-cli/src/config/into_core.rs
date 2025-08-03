@@ -1,5 +1,5 @@
 use super::{Common, Config, Group, Lang, Punct, Quote, Space};
-use crate::Result;
+use crate::{Error, Result};
 use decondenser::Decondenser;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,12 +14,17 @@ impl Config {
             debug_indent,
         } = self;
 
+        let decondenser = BUILTIN_LANGS
+            .iter()
+            .find(|(name, _)| *name == lang)
+            .map(|(_, factory)| factory());
+
         let decondenser = if let Some(lang) = langs.remove(lang) {
-            let decondenser = Decondenser::empty();
+            let decondenser = decondenser.unwrap_or_else(Decondenser::base);
             let decondenser = formatting.apply(decondenser);
             lang.apply(decondenser)
         } else {
-            let decondenser = Self::builtin_lang(&langs, lang)?;
+            let decondenser = decondenser.ok_or_else(|| Self::unknown_lang_error(&langs, lang))?;
             formatting.apply(decondenser)
         };
 
@@ -28,28 +33,19 @@ impl Config {
             .debug_indent(debug_indent))
     }
 
-    fn builtin_lang(custom_langs: &BTreeMap<String, Lang>, lang: &str) -> Result<Decondenser> {
-        let config = BUILTIN_LANGS
-            .iter()
-            .find(|(name, _)| *name == lang)
-            .map(|(_, factory)| factory());
-
-        if let Some(config) = config {
-            return Ok(config);
-        }
-
+    fn unknown_lang_error(custom_langs: &BTreeMap<String, Lang>, lang: &str) -> Error {
         let available_langs = custom_langs
             .keys()
             .map(String::as_str)
             .chain(BUILTIN_LANGS.iter().map(|(name, _)| *name))
             .collect::<BTreeSet<_>>();
 
-        Err(anyhow::anyhow!(
+        anyhow::anyhow!(
             "Unrecognized language: '{lang}'. \
-            The language must be one of the following (builtin or custom): \
+            The language must be one of the following: \
             {available_langs:?}",
         )
-        .into())
+        .into()
     }
 }
 

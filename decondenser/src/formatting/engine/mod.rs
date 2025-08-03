@@ -165,6 +165,10 @@ impl<'a> Formatter<'a> {
     }
 
     pub(crate) fn raw(&mut self, content: MeasuredStr<'a>) {
+        if content.is_empty() {
+            return;
+        }
+
         self.flush_normalized_tokens();
         self.fmt.raw(content);
     }

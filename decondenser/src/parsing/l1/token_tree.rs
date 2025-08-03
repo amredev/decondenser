@@ -1,3 +1,5 @@
+pub(crate) use crate::parsing::quoted::l1::Token as QuotedContent;
+
 use crate::config;
 use std::fmt;
 
@@ -64,28 +66,6 @@ impl fmt::Debug for Quoted<'_> {
             "({}: {} -> {closing}) {:?}",
             self.opening, self.config.opening, self.content
         )
-    }
-}
-
-pub(crate) enum QuotedContent {
-    Raw { start: usize },
-    Escape { start: usize },
-}
-
-impl fmt::Debug for QuotedContent {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Raw { start } => write!(f, "qr:{start}"),
-            Self::Escape { start } => write!(f, "qe:{start}"),
-        }
-    }
-}
-
-impl QuotedContent {
-    pub(crate) fn start(&self) -> usize {
-        match self {
-            Self::Raw { start } | Self::Escape { start } => *start,
-        }
     }
 }
 
