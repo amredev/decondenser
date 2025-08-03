@@ -20,7 +20,7 @@ impl Config {
             .map(|(_, factory)| factory());
 
         let decondenser = if let Some(lang) = langs.remove(lang) {
-            let decondenser = decondenser.unwrap_or_else(Decondenser::new);
+            let decondenser = decondenser.unwrap_or_else(Decondenser::base);
             let decondenser = formatting.apply(decondenser);
             lang.apply(decondenser)
         } else {

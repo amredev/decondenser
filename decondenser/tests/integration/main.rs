@@ -75,7 +75,9 @@ struct Snapshot {
 impl Snapshot {
     fn new(file_name: &str) -> Self {
         let path = PathBuf::from_iter([
-            &std::env::var("CARGO_MANIFEST_DIR").unwrap(),
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
             "tests",
             "integration",
             file_name,

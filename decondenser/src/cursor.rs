@@ -1,5 +1,6 @@
 use std::str::Chars;
 
+#[derive(Clone)]
 pub(crate) struct Cursor<'a> {
     /// Total number of bytes in the input.
     bytes: usize,
@@ -33,14 +34,5 @@ impl<'a> Cursor<'a> {
         self.chars = stripped.chars();
 
         Some(start)
-    }
-
-    pub(crate) fn find(&mut self, needle: char) -> Option<usize> {
-        while let (byte_offset, Some(char)) = (self.byte_offset(), self.next()) {
-            if char == needle {
-                return Some(byte_offset);
-            }
-        }
-        None
     }
 }

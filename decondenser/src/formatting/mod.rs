@@ -56,7 +56,7 @@ impl<'i> FormattingCtx<'_, 'i> {
         self.fmt.raw(self.measured_str(&quoted.config.opening));
 
         for content in &quoted.content {
-            self.fmt.raw(self.measured_str(content.text()));
+            self.fmt.raw(self.measured_str(content.source()));
         }
 
         if quoted.closed {

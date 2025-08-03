@@ -1,3 +1,5 @@
+pub(crate) use crate::parsing::quoted::l2::{Escape, Token as QuotedContent};
+
 use crate::config;
 use std::fmt;
 
@@ -42,28 +44,6 @@ impl fmt::Debug for Quoted<'_> {
             "{:?} -> {closing:?} {:?}",
             self.config.opening, self.content
         )
-    }
-}
-
-pub(crate) enum QuotedContent<'a> {
-    Raw(&'a str),
-    Escape(&'a str),
-}
-
-impl fmt::Debug for QuotedContent<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Raw(text) => write!(f, "qr:{text:?}"),
-            Self::Escape(text) => write!(f, "qe:{text:?}"),
-        }
-    }
-}
-
-impl<'a> QuotedContent<'a> {
-    pub(crate) fn text(&self) -> &'a str {
-        match self {
-            Self::Raw(text) | Self::Escape(text) => text,
-        }
     }
 }
 
