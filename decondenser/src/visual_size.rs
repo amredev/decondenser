@@ -7,6 +7,8 @@ use std::sync::Arc;
 ///
 /// You probably don't want to implement this trait by hand, and instead use a
 /// closure since this trait is implemented for `Fn(&str) -> usize`.
+///
+/// [`Decondenser::visual_size`]: crate::Decondenser::visual_size
 pub trait VisualSize: Send + Sync + 'static {
     /// The main implementation. It is assumed to be cheap, and it'll be called
     /// many times during the formatting.
