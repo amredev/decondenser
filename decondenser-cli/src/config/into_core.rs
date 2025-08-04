@@ -1,64 +1,30 @@
-use super::{Common, Config, Group, Lang, Punct, Quote, Space};
-use crate::{Error, Result};
+use super::{Config, Group, Indent, Preset, Punct, Quote, Space};
 use decondenser::Decondenser;
-use std::collections::{BTreeMap, BTreeSet};
-
-const BUILTIN_LANGS: &[(&str, fn() -> Decondenser)] = &[("generic", Decondenser::generic)];
 
 impl Config {
-    pub(crate) fn into_decondenser(self, lang: &str) -> Result<Decondenser> {
+    pub(crate) fn into_decondenser(self) -> Decondenser {
         let Self {
-            common: formatting,
-            mut langs,
+            extends,
+            indent,
+            max_line_size,
+            no_break_size,
+            groups,
+            quotes,
+            puncts,
             debug_layout,
             debug_indent,
         } = self;
 
-        let decondenser = BUILTIN_LANGS
-            .iter()
-            .find(|(name, _)| *name == lang)
-            .map(|(_, factory)| factory());
-
-        let decondenser = if let Some(lang) = langs.remove(lang) {
-            let decondenser = decondenser.unwrap_or_else(Decondenser::base);
-            let decondenser = formatting.apply(decondenser);
-            lang.apply(decondenser)
-        } else {
-            let decondenser = decondenser.ok_or_else(|| Self::unknown_lang_error(&langs, lang))?;
-            formatting.apply(decondenser)
+        let mut decondenser = match extends.unwrap_or(Preset::Generic) {
+            Preset::Empty => Decondenser::empty(),
+            Preset::Generic => Decondenser::generic(),
         };
 
-        Ok(decondenser
-            .debug_layout(debug_layout)
-            .debug_indent(debug_indent))
-    }
-
-    fn unknown_lang_error(custom_langs: &BTreeMap<String, Lang>, lang: &str) -> Error {
-        let available_langs = custom_langs
-            .keys()
-            .map(String::as_str)
-            .chain(BUILTIN_LANGS.iter().map(|(name, _)| *name))
-            .collect::<BTreeSet<_>>();
-
-        anyhow::anyhow!(
-            "Unrecognized language: '{lang}'. \
-            The language must be one of the following: \
-            {available_langs:?}",
-        )
-        .into()
-    }
-}
-
-impl Common {
-    fn apply(self, mut decondenser: Decondenser) -> Decondenser {
-        let Self {
-            indent,
-            max_line_size,
-            no_break_size,
-        } = self;
-
         if let Some(indent) = indent {
-            decondenser = decondenser.indent(indent);
+            decondenser = match indent {
+                Indent::NSpaces(n_spaces) => decondenser.indent(n_spaces),
+                Indent::String(string) => decondenser.indent(string),
+            }
         }
 
         if let Some(max_line_size) = max_line_size {
@@ -68,21 +34,6 @@ impl Common {
         if let Some(no_break_size) = no_break_size {
             decondenser = decondenser.no_break_size(no_break_size);
         }
-
-        decondenser
-    }
-}
-
-impl Lang {
-    fn apply(self, mut decondenser: Decondenser) -> Decondenser {
-        let Self {
-            common: formatting,
-            groups,
-            quotes,
-            puncts,
-        } = self;
-
-        decondenser = formatting.apply(decondenser);
 
         if let Some(groups) = groups {
             decondenser = decondenser.groups(groups.into_iter().map(Group::into_core));
@@ -94,6 +45,14 @@ impl Lang {
 
         if let Some(puncts) = puncts {
             decondenser = decondenser.puncts(puncts.into_iter().map(Punct::into_core));
+        }
+
+        if let Some(debug_layout) = debug_layout {
+            decondenser = decondenser.debug_layout(debug_layout);
+        }
+
+        if let Some(debug_indent) = debug_indent {
+            decondenser = decondenser.debug_indent(debug_indent);
         }
 
         decondenser

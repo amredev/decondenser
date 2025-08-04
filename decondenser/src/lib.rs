@@ -47,12 +47,12 @@ fn default_visual_size(str: &str) -> usize {
 }
 
 impl Decondenser {
-    /// Creates an base [`Decondenser`] instance without any groups, quotes, or
+    /// Creates an empty [`Decondenser`] instance without any groups, quotes, or
     /// punctuation sequences configured. It is only useful as a starting point
     /// for custom configurations. Use [`Decondenser::generic()`] to get a
     /// general-purpose [`Decondenser`] configured for free-form text
     /// formatting.
-    pub fn base() -> Self {
+    pub fn empty() -> Self {
         Self {
             indent: Str::n_spaces(4),
             max_line_size: 80,
@@ -103,7 +103,7 @@ impl Decondenser {
 
         let punct = |symbol| Punct::new(symbol).trailing_space(Space::new().breakable(true));
 
-        Self::base()
+        Self::empty()
             .groups([
                 group("(", ")", 0),
                 group("[", "]", 0),
@@ -162,9 +162,8 @@ impl Decondenser {
         self
     }
 
-    /// Lines shorter than this will never be broken up at any indentation
-    /// level, even if the line will be longer than the [`max_line_size`] at
-    /// that indentation level.
+    /// Lines shorter than (ignoring indent) won't be broken no matter the
+    /// [`max_line_size`].
     ///
     /// By default, this is set to `max_line_size / 2`, which is `40` if the
     /// default [`max_line_size`] of `80` is used, but is adjusted if
@@ -188,7 +187,7 @@ impl Decondenser {
     ///
     /// ```
     /// # use decondenser::Decondenser;
-    /// # let decondenser = Decondenser::base();
+    /// # let decondenser = Decondenser::empty();
     /// #
     /// decondenser.visual_size(unicode_width::UnicodeWidthStr::width);
     /// ```

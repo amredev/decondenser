@@ -1,36 +1,36 @@
-use super::{Common, Config, Group, Lang, Punct, Quote, Space};
-use crate::yaml::{self, Deserialize, Node, NodeExt, Object, Result};
+use super::{Config, Group, Indent, Preset, Punct, Quote, Space};
+use crate::yaml::{self, Deserialize, Node, NodeExt, Result};
 use decondenser::BreakStyle;
 
 impl Deserialize for Config {
     fn deserialize(value: Node) -> Result<Self> {
         value.object(|obj| Self {
-            common: Common::flattened(obj),
-            langs: obj.optional("lang").unwrap_or_default(),
-            debug_layout: obj.optional("debug_layout").unwrap_or_default(),
-            debug_indent: obj.optional("debug_indent").unwrap_or_default(),
+            extends: obj.optional("extends"),
+            indent: obj.optional("indent"),
+            max_line_size: obj.optional("max_line_size"),
+            no_break_size: obj.optional("no_break_size"),
+            groups: obj.optional("groups"),
+            quotes: obj.optional("quotes"),
+            puncts: obj.optional("puncts"),
+            debug_layout: obj.optional("debug_layout"),
+            debug_indent: obj.optional("debug_indent"),
         })
     }
 }
 
-impl Deserialize for Lang {
+impl Deserialize for Preset {
     fn deserialize(value: Node) -> Result<Self> {
-        value.object(|table| Self {
-            common: Common::flattened(table),
-            groups: table.optional("groups"),
-            quotes: table.optional("quotes"),
-            puncts: table.optional("puncts"),
-        })
+        value.enumeration(&[("empty", || Self::Empty), ("generic", || Self::Generic)])
     }
 }
 
-impl Common {
-    fn flattened(table: &mut Object) -> Self {
-        Self {
-            indent: table.optional("indent"),
-            max_line_size: table.optional("max_line_size"),
-            no_break_size: table.optional("no_break_size"),
-        }
+impl Deserialize for Indent {
+    fn deserialize(value: Node) -> Result<Self> {
+        value
+            .any_of()
+            .usize(|n_spaces| Ok(Self::NSpaces(n_spaces)))
+            .string(|string| Ok(Self::String(string)))
+            .finish()
     }
 }
 
@@ -42,7 +42,7 @@ impl Deserialize for Group {
             .any_of()
             .array(|array| {
                 let [opening, closing] = array.try_into().map_err(|array: Vec<_>| {
-                    yaml::Errors::unexpected_type(
+                    yaml::Errors::unexpected_type_detailed(
                         span,
                         "an object or an array of two items ([opening, closing] delimiters)",
                         format_args!("array of size {}", array.len()),

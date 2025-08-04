@@ -4,34 +4,34 @@ mod into_core;
 use crate::{Files, Result};
 use anyhow::Context;
 use decondenser::BreakStyle;
-use std::collections::BTreeMap;
 use std::path::Path;
 
 #[derive(Default)]
 pub(crate) struct Config {
-    common: Common,
-    langs: BTreeMap<String, Lang>,
+    extends: Option<Preset>,
+    indent: Option<Indent>,
+    max_line_size: Option<usize>,
+    no_break_size: Option<usize>,
+    groups: Option<Vec<Group>>,
+    quotes: Option<Vec<Quote>>,
+    puncts: Option<Vec<Punct>>,
 
     // Only used for debugging. No stability guarantees are provided for these
     //
     // Enable outputting of the special control characters to review the layout
     // and/or indentation.
-    debug_layout: bool,
-    debug_indent: bool,
+    debug_layout: Option<bool>,
+    debug_indent: Option<bool>,
 }
 
-#[derive(Default)]
-struct Common {
-    indent: Option<String>,
-    max_line_size: Option<usize>,
-    no_break_size: Option<usize>,
+enum Preset {
+    Empty,
+    Generic,
 }
 
-struct Lang {
-    common: Common,
-    groups: Option<Vec<Group>>,
-    quotes: Option<Vec<Quote>>,
-    puncts: Option<Vec<Punct>>,
+enum Indent {
+    NSpaces(usize),
+    String(String),
 }
 
 struct Group {
