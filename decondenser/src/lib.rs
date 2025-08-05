@@ -132,8 +132,8 @@ impl Decondenser {
     /// of non-whitespace characters may span more than this many characters,
     /// and decondenser does not currently attempt to break these up.
     #[must_use]
-    pub fn decondense(&self, input: &str) -> String {
-        self.decondense_impl(input)
+    pub fn format(&self, input: &str) -> String {
+        self.format_impl(input)
     }
 
     /// String to used to make a single level of indentation.

@@ -18,7 +18,7 @@ impl wit::Guest for Component {
     }
 
     fn decondense(params: wit::DecondenseParams) -> wit::DecondenseOutput {
-        let output = decondenser::Decondenser::generic().decondense(&params.input);
+        let output = decondenser::Decondenser::generic().format(&params.input);
 
         wit::DecondenseOutput { output }
     }

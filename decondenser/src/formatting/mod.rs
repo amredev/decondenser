@@ -8,7 +8,7 @@ use crate::parsing::l2::TokenTree;
 impl crate::Decondenser {
     /// This function lives here to keep the `lib.rs` file lean and focused on
     /// the public API of the `Decondenser` struct.
-    pub(crate) fn decondense_impl(&self, input: &str) -> String {
+    pub(crate) fn format_impl(&self, input: &str) -> String {
         let tokens = parsing::l2::parse(self, input);
 
         let mut fmt = Formatter::new(self);

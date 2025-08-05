@@ -5,19 +5,16 @@ world decondenser {
         unescape: func(params: unescape-params) -> unescape-output;
         record unescape-params {
             input: string,
-            mappings: list<tuple<string, string>>,
         }
         record unescape-output {
             output: string,
         }
 
-        decondense: func(params: decondense-params) -> decondense-output;
-        record decondense-params {
+        format: func(params: format-params) -> format-output;
+        record format-params {
             input: string,
-            indent: string,
-            mappings: list<tuple<string, string>>,
         }
-        record decondense-output {
+        record format-output {
             output: string,
         }
     }

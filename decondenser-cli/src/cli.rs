@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 fn cli() -> clap::Command {
     clap::Command::new("decondenser")
         .about(
-            "decondenser pretty-prints any text based on brackets nesting\n\n\
-            this help is short, more details here: https://decondenser.dev",
+            "decondenser pretty-prints any text based on brackets nesting;\n\
+             more details docs: https://decondenser.dev",
         )
         .long_about(None)
         .version(env!("CARGO_PKG_VERSION"))
@@ -25,7 +25,7 @@ fn cli() -> clap::Command {
             .value_parser(value_parser!(PathBuf))
             .required(false),
         )
-        .next_help_heading("Overrides")
+        .next_help_heading("Formatting")
         .arg(arg!(--indent <INDENT> "a number of spaces or a string to use for indentation [default: 4]"))
         .arg(arg!(
             --"max-line-size" <SIZE>
@@ -74,7 +74,7 @@ pub(crate) fn run(files: &mut Files) -> Result {
     }
 
     let input = read_input(&input)?;
-    let output_str = decondenser.decondense(&input);
+    let output_str = decondenser.format(&input);
 
     write_output(&output, output_str)
 }
