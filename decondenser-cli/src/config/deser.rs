@@ -29,7 +29,7 @@ impl Deserialize for Indent {
         value
             .any_of()
             .usize(|n_spaces| Ok(Self::NSpaces(n_spaces)))
-            .string(|string| Ok(Self::String(string)))
+            .string(|string| Ok(Self::Str(string)))
             .finish()
     }
 }

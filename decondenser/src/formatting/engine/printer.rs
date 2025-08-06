@@ -99,7 +99,13 @@ impl<'a> Printer<'a> {
     }
 
     pub(super) fn end(&mut self) {
-        let top_group = self.groups_stack.pop().unwrap();
+        let Some(top_group) = self.groups_stack.pop() else {
+            debug_panic!(
+                "Unbalanced groups stack: trying to end a group when
+                there is no group started"
+            );
+            return;
+        };
 
         if self.config.debug_layout {
             self.output.push(match top_group.break_style() {

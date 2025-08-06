@@ -31,7 +31,7 @@ enum Preset {
 
 enum Indent {
     NSpaces(usize),
-    String(String),
+    Str(String),
 }
 
 struct Group {

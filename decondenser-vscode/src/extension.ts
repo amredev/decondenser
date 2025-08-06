@@ -12,17 +12,22 @@ export async function activate(ctx: vscode.ExtensionContext) {
         ctx.subscriptions.push(command);
     }
 
-    addCommand("decondenser.decondense", decondense);
+    addCommand("decondenser.format", format);
     addCommand("decondenser.unescape", unescape);
 }
 
 function unescape() {
-    // decondenser.decondenser.unescape({
-    //     input,
-    // }).output;
+    edit(decondenser.decondenser.unescape);
 }
 
-function decondense() {
+function format() {
+    edit((input) => {
+        const config = new decondenser.decondenser.Decondenser({});
+        return config.format(input);
+    });
+}
+
+function edit(process: (input: string) => string) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         return;
@@ -35,10 +40,7 @@ function decondense() {
 
     const input = editor.document.getText(selection);
 
-    const { output } = decondenser.decondenser.decondense({
-        input,
-        indent: " ".repeat(getInd   ent()),
-    });
+    const output = process(input);
 
     editor.edit((edit) => {
         edit.replace(selection, output);
@@ -56,14 +58,17 @@ function fullDocumentSelection(
     );
 }
 
-function getIndent(): number {
-    const indent = vscode.workspace
-        .getConfiguration("decondenser")
-        .get("indentationSize");
+// function getIndent(): number | string {
+//     const indent = vscode.workspace
+//         .getConfiguration("decondenser")
+//         .get("indent");
 
-    if (typeof indent !== "number" || indent < 0) {
-        return 2;
-    }
+//     if (
+//         typeof indent !== "string" ||
+//         (typeof indent === "number" && indent < 0)
+//     ) {
+//         return 2;
+//     }
 
-    return indent;
-}
+//     return indent;
+// }

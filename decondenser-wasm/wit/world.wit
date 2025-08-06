@@ -2,20 +2,59 @@ package amredev:decondenser;
 
 world decondenser {
     export decondenser: interface {
-        unescape: func(params: unescape-params) -> unescape-output;
-        record unescape-params {
-            input: string,
-        }
-        record unescape-output {
-            output: string,
+        unescape: func(input: string) -> string;
+
+        resource decondenser {
+            constructor(params: decondenser-params);
+
+            format: func(input: string) -> string;
         }
 
-        format: func(params: format-params) -> format-output;
-        record format-params {
-            input: string,
+        record decondenser-params {
+            extends: option<preset>,
+            indent: option<indent>,
+            max-line-size: option<u32>,
+            no-break-size: option<u32>,
+            groups: option<list<group>>,
+            quotes: option<list<quote>>,
+            puncts: option<list<punct>>,
         }
-        record format-output {
-            output: string,
+
+        variant preset {
+            empty,
+            generic,
+        }
+
+        variant indent {
+            n-spaces(u32),
+            str(string),
+        }
+
+        record group {
+            opening: punct,
+            closing: punct,
+            break-style: option<break-style>,
+        }
+
+        variant break-style {
+            consistent,
+            compact,
+        }
+
+        record punct {
+            symbol: string,
+            leading-space: option<space>,
+            trailing-space: option<space>,
+        }
+
+        record space {
+            size: option<u32>,
+            breakable: option<bool>,
+        }
+
+        record quote {
+            opening: string,
+            closing: string,
         }
     }
 }

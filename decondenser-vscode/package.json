@@ -24,8 +24,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "decondenser.decondense",
-        "title": "Decondenser: Decondense"
+        "command": "decondenser.format",
+        "title": "Decondenser: Format"
       },
       {
         "command": "decondenser.unescape",
@@ -45,7 +45,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "build": "../decondenser-ts/build.sh && tsc --noEmit && ./esbuild.mjs"
+    "build": "../decondenser-ts/build.sh && tsc --noEmit && ./esbuild.mjs",
+    "build:prod": "MODE=prod npm run build"
   },
   "dependencies": {
     "decondenser": "0.1.0"

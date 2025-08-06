@@ -82,7 +82,7 @@ impl Str {
         const SPACES: &str = {
             match str::from_utf8(&[b' '; inline_str::CAPACITY]) {
                 Ok(str) => str,
-                Err(_) => unreachable!(),
+                Err(_) => "",
             }
         };
 
