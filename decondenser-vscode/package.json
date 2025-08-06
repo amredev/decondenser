@@ -25,11 +25,11 @@
     "commands": [
       {
         "command": "decondenser.format",
-        "title": "Decondenser: Format"
+        "title": "Decondenser: Format Text"
       },
       {
         "command": "decondenser.unescape",
-        "title": "Decondenser: Unescape"
+        "title": "Decondenser: Unescape Text"
       }
     ],
     "configuration": {

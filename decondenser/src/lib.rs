@@ -25,7 +25,7 @@ use self::sealed::Sealed;
 use self::str::Str;
 use self::visual_size::ArcVisualSize;
 
-/// Provide configuration and run [`Decondenser::decondense()`] to format the
+/// Provide configuration and run [`Decondenser::format()`] to format the
 /// input.
 #[derive(Debug, Clone)]
 #[must_use = "Decondenser doesn't produce side effects. Make sure to call `decondense()` to use it"]
