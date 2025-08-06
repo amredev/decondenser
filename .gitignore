@@ -9,6 +9,7 @@ decondenser-wasm/src/bindings.rs
 
 # Files where logs can be stored and not committed
 *.log
+!decondenser/tests/integration/formatting/*.log
 
 # Special name pattern for dirty experimentation that should not be committed
 *dbg*

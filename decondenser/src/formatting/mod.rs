@@ -95,8 +95,6 @@ impl<'i> FormattingCtx<'_, 'i> {
     fn on_group(&mut self, leading_space: Option<&'i str>, group: &'i parsing::l2::Group<'i>) {
         let config = group.config;
 
-        self.fmt.begin(group.config.break_style.0);
-
         let is_empty_group = group
             .content
             .iter()
@@ -107,6 +105,8 @@ impl<'i> FormattingCtx<'_, 'i> {
             self.empty_group(leading_space, group);
             return;
         }
+
+        self.fmt.begin(group.config.break_style.0);
 
         let mut tokens = group.content.iter();
 
