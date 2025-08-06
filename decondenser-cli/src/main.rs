@@ -28,7 +28,12 @@ fn main() -> ExitCode {
         Error::Diagnostic(diags) => {
             for diag in &diags {
                 let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
-                let config = term::Config::default();
+                let config = term::Config {
+                    before_label_lines: 5,
+                    after_label_lines: 1,
+                    ..Default::default()
+                };
+
                 let result = term::emit(&mut writer.lock(), &config, &files, diag);
                 if let Err(err) = result {
                     eprintln!("Failed to emit diagnostic: {err:#?}");

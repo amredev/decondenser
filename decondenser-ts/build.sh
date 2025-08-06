@@ -23,6 +23,6 @@ fi
 step npx jco transpile \
     "${options[@]}" \
     --tla-compat \
-    --base64-cutoff 100000 \
+    --base64-cutoff 200000 \
     --out-dir ./dist \
     ../target/wasm32-unknown-unknown/release/decondenser_wasm.wasm

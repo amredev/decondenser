@@ -175,24 +175,9 @@ impl<T> AnyOfCtx<T> {
             AnyOfState::Pending(pending) => pending,
         };
 
-        let actual = match &pending.node {
-            Node::Mapping(_) => "an object",
-            Node::Sequence(_) => "an array",
-            Node::Scalar(scalar) => None
-                .or_else(|| scalar.parse::<bool>().map(|_| "a boolean").ok())
-                .or_else(|| scalar.parse::<u64>().map(|_| "u64").ok())
-                .or_else(|| scalar.parse::<i64>().map(|_| "a negative i64").ok())
-                .or_else(|| scalar.parse::<f64>().map(|_| "an f64").ok())
-                .unwrap_or("a string"),
-        };
-
         let allowed_types = pending.allowed_types.into_vec().join(" or ");
 
-        Err(Errors::unexpected_type(
-            *pending.node.span(),
-            &allowed_types,
-            actual,
-        ))
+        Err(Errors::unexpected_type(&pending.node, &allowed_types))
     }
 }
 

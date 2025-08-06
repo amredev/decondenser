@@ -49,7 +49,7 @@ fn formatting() {
             }
         }
 
-        test["output"] = decondenser.decondense(input).into();
+        test["output"] = decondenser.format(input).into();
     });
 }
 

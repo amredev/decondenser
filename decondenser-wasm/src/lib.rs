@@ -1,4 +1,7 @@
+mod into_core;
+
 use bindings::exports::decondenser as wit;
+use decondenser::Decondenser;
 
 /// The bindings are generated via `cargo component`:
 /// <https://github.com/bytecodealliance/cargo-component>
@@ -12,14 +15,21 @@ struct Component;
 bindings::export!(Component with_types_in bindings);
 
 impl wit::Guest for Component {
-    fn unescape(_input: wit::UnescapeParams) -> wit::UnescapeOutput {
-        todo!()
-        // decondenser::Decondenser::generic().unescape(&input)
+    type Decondenser = Decondenser;
+
+    fn unescape(input: String) -> String {
+        decondenser::unescape(&input).into_owned()
+    }
+}
+
+impl wit::GuestDecondenser for Decondenser {
+    fn new(params: wit::DecondenserParams) -> Self {
+        params.into_decondenser()
     }
 
-    fn decondense(params: wit::DecondenseParams) -> wit::DecondenseOutput {
-        let output = decondenser::Decondenser::generic().decondense(&params.input);
-
-        wit::DecondenseOutput { output }
+    fn format(&self, input: String) -> String {
+        // Delegate to the inherent method of the same name. No, it's not an
+        // unconditional recursion, the compiler would report it otherwise  .
+        self.format(&input)
     }
 }

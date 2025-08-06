@@ -1,7 +1,7 @@
 mod any_of;
 mod error;
 
-pub(crate) use any_of::{NodeExt, Object};
+pub(crate) use any_of::NodeExt;
 pub(crate) use error::{Errors, Result};
 pub(crate) use marked_yaml::Node;
 

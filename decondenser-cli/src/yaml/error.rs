@@ -1,7 +1,7 @@
 use crate::{Diagnostic, Label};
 use codespan_reporting::diagnostic::LabelStyle;
 use marked_yaml::types::MarkedScalarNode;
-use marked_yaml::{Marker, Span};
+use marked_yaml::{Marker, Node, Span};
 
 pub(crate) type Result<T = (), E = Errors> = std::result::Result<T, E>;
 
@@ -28,7 +28,7 @@ impl Errors {
         (!self.diagnostics.is_empty()).then_some(self.diagnostics)
     }
 
-    pub(super) fn into_result(self) -> Result {
+    pub(crate) fn into_result(self) -> Result {
         if self.diagnostics.is_empty() {
             Ok(())
         } else {
@@ -36,7 +36,22 @@ impl Errors {
         }
     }
 
-    pub(crate) fn unexpected_type(
+    pub(crate) fn unexpected_type(node: &Node, expected: &str) -> Self {
+        let display_type = match node {
+            Node::Mapping(_) => "an object",
+            Node::Sequence(_) => "an array",
+            Node::Scalar(scalar) => None
+                .or_else(|| scalar.parse::<bool>().map(|_| "a boolean").ok())
+                .or_else(|| scalar.parse::<u64>().map(|_| "u64").ok())
+                .or_else(|| scalar.parse::<i64>().map(|_| "a negative i64").ok())
+                .or_else(|| scalar.parse::<f64>().map(|_| "an f64").ok())
+                .unwrap_or("a string"),
+        };
+
+        Self::unexpected_type_detailed(*node.span(), expected, display_type)
+    }
+
+    pub(crate) fn unexpected_type_detailed(
         span: Span,
         expected: &str,
         actual: impl std::fmt::Display,
@@ -120,11 +135,11 @@ impl From<marked_yaml::LoadError> for Errors {
     }
 }
 
-pub(super) fn primary_label(span: Span) -> Label {
+pub(crate) fn primary_label(span: Span) -> Label {
     label_with_style(LabelStyle::Primary, span)
 }
 
-pub(super) fn secondary_label(span: Span) -> Label {
+pub(crate) fn secondary_label(span: Span) -> Label {
     label_with_style(LabelStyle::Secondary, span)
 }
 
