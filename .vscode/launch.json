@@ -6,7 +6,9 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/decondenser-vscode"
+        "--extensionDevelopmentPath=${workspaceFolder}/decondenser-vscode",
+        "${workspaceFolder}/decondenser",
+        "${workspaceFolder}/decondenser/tests/integration/real-world-cases/001-rust.log"
       ],
       "outFiles": ["${workspaceFolder}/decondenser-vscode/dist/**/*.js"],
       "preLaunchTask": "${defaultBuildTask}"
@@ -21,7 +23,7 @@
         },
         "args": ["build", "-p", "decondenser-cli"]
       },
-      "args": ["--input=dbg.log", "--output=dbg.out.log"]
+      "args": ["fmt", "--input=dbg.log", "--output=dbg.out.log"]
     }
   ]
 }

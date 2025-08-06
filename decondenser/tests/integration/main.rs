@@ -3,17 +3,26 @@
 use decondenser::Decondenser;
 use std::borrow::Cow;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str::FromStr;
 
-/// This test updates the `output` values in the `formatting.toml` file. It
-/// never fails, it only updates the file. However, on CI we make sure that the
-/// `formatting.toml` file is fresh by checking if it changes after the test
-/// run. This way we can observe the changes to the output values in PR diffs
-/// and have them automatically updated via `scripts/update-tests.sh`.
+fn tests_dir() -> &'static Path {
+    static CACHE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+    CACHE.get_or_init(|| {
+        PathBuf::from_iter([
+            std::env::var("CARGO_MANIFEST_DIR")
+                .as_deref()
+                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
+            "tests",
+            "integration",
+        ])
+    })
+}
+
 #[test]
-fn formatting() {
+fn formatting_toml() {
     Snapshot::new("formatting.toml").update(|test| {
         let input = test["input"].as_str().unwrap();
 
@@ -54,7 +63,33 @@ fn formatting() {
 }
 
 #[test]
-fn unescaping() {
+fn formatting_dir() {
+    let tests = std::fs::read_dir(tests_dir().join("formatting")).unwrap();
+
+    for test in tests {
+        let test_path = test.unwrap().path();
+        let test_name = test_path.to_string_lossy();
+
+        let mut test_name_parts = test_name.split('.').collect::<Vec<_>>();
+
+        if test_name_parts.get(test_name_parts.len().saturating_sub(2)) == Some(&"out") {
+            continue;
+        }
+
+        let decondenser = Decondenser::generic();
+
+        let input = std::fs::read_to_string(&test_path).unwrap();
+        let output = decondenser.format(&input);
+
+        test_name_parts.insert(test_name_parts.len().saturating_sub(1), "out");
+        let out_path = test_path.with_file_name(test_name_parts.join("."));
+
+        std::fs::write(&out_path, output).unwrap();
+    }
+}
+
+#[test]
+fn unescaping_toml() {
     Snapshot::new("unescaping.toml").update(|test| {
         let input = test["input"].as_str().unwrap();
         let output = decondenser::unescape(input);
@@ -74,14 +109,7 @@ struct Snapshot {
 
 impl Snapshot {
     fn new(file_name: &str) -> Self {
-        let path = PathBuf::from_iter([
-            std::env::var("CARGO_MANIFEST_DIR")
-                .as_deref()
-                .unwrap_or(env!("CARGO_MANIFEST_DIR")),
-            "tests",
-            "integration",
-            file_name,
-        ]);
+        let path = tests_dir().join(file_name);
 
         let file = std::fs::read_to_string(&path).unwrap();
 

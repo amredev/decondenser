@@ -28,6 +28,8 @@ impl wit::GuestDecondenser for Decondenser {
     }
 
     fn format(&self, input: String) -> String {
+        eprintln!("EPRINTLN INVOKED");
+        println!("PRINTLN INVOKED");
         // Delegate to the inherent method of the same name. No, it's not an
         // unconditional recursion, the compiler would report it otherwise  .
         self.format(&input)
