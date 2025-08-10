@@ -13,11 +13,11 @@ Decondenser is distributed in the following forms:
 
 Any contributions are welcome ❤️! Feel free to submit an issue or a PR, and it'll be reviewed/merged.
 
-## License
+#### License
 
 <sup>
-Licensed under <a href="https://github.com/elastio/bon/blob/master/LICENSE">Apache License, Version
-2.0</a>.
+Licensed under either of <a href="https://github.com/amredev/decondenser/blob/master/LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="https://github.com/amredev/decondenser/blob/master/LICENSE-MIT">MIT license</a> at your option.
 </sup>
 
 <br>
@@ -25,7 +25,5 @@ Licensed under <a href="https://github.com/elastio/bon/blob/master/LICENSE">Apac
 <sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-licensed as above, without any additional terms or conditions.
+dual licensed as above, without any additional terms or conditions.
 </sub>
-
-<!-- #endregion overview -->
