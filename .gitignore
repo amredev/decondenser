@@ -4,6 +4,10 @@ node_modules
 *.vsix
 target/
 
+**/.vitepress/cache/
+**/.vitepress/dist/
+**/.vitepress/temp/
+
 # This file is code-generated via `cargo component` during the build
 decondenser-wasm/src/bindings.rs
 

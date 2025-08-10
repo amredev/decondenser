@@ -1,0 +1,72 @@
+import { defineConfig, HeadConfig } from "vitepress";
+
+const head: HeadConfig[] = [
+    ["link", { rel: "icon", href: `/decondenser-logo-thumb.png` }],
+    ["meta", { property: "og:image", content: `/decondenser-logo-thumb.png` }],
+];
+
+const srcDir = "src";
+
+// https://vitepress.dev/reference/site-config
+export default defineConfig({
+    title: "Decondenser",
+    description: "Prettify condensed text based on bracket placement",
+
+    cleanUrls: true,
+    lastUpdated: true,
+
+    markdown: {
+        theme: {
+            dark: "dark-plus",
+            light: "light-plus",
+        },
+    },
+
+    srcExclude: ["README.md"],
+
+    head,
+
+    srcDir,
+
+    // https://vitepress.dev/reference/default-theme-config
+    themeConfig: {
+        logo: "/decondenser-logo-thumb.png",
+
+        lastUpdated: {
+            formatOptions: {
+                dateStyle: "long",
+                timeStyle: undefined,
+                forceLocale: false,
+            },
+        },
+
+        editLink: {
+            pattern: `https://github.com/amredev/decondenser/edit/master/website/${srcDir}/:path`,
+            text: "Edit this page on GitHub",
+        },
+
+        // Enable the search only in the final build on CI. Locally, it takes additional
+        // time during the dev HMR server startup and config reloads.
+        search: !process.env.CI
+            ? undefined
+            : {
+                  provider: "local",
+              },
+
+        nav: [
+            { text: "Guide", link: "/guide/overview" },
+            { text: "Reference", link: "/reference/builder" },
+            { text: "Changelog", link: "/changelog" },
+            { text: "Blog", link: "/blog" },
+        ],
+
+        socialLinks: [
+            { icon: "github", link: "https://github.com/amredev/decondenser" },
+            { icon: "discord", link: "https://decondenser.dev/discord" },
+            { icon: "patreon", link: "https://patreon.com/Veetaha" },
+            { icon: "kofi", link: "https://ko-fi.com/Veetaha" },
+        ],
+
+        sidebar: {},
+    },
+});
