@@ -7,7 +7,7 @@ use crate::{Decondenser, config};
 use std::mem;
 
 pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTree<'a>> {
-    let mut lexer = Lexer {
+    let mut lexer = Parser {
         config,
         cursor: Cursor::new(input),
         output: Vec::new(),
@@ -16,13 +16,13 @@ pub(crate) fn parse<'a>(config: &'a Decondenser, input: &'a str) -> Vec<TokenTre
     lexer.output
 }
 
-struct Lexer<'a> {
+struct Parser<'a> {
     config: &'a Decondenser,
     cursor: Cursor<'a>,
     output: Vec<TokenTree<'a>>,
 }
 
-impl<'a> Lexer<'a> {
+impl<'a> Parser<'a> {
     fn parse(&mut self, terminator: Option<&str>) -> Option<usize> {
         while let Some(char) = self.cursor.peek() {
             if char == '\n' {
