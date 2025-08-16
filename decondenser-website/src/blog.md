@@ -8,19 +8,18 @@ layout: home
 
 <script setup>
 import { withBase } from "vitepress";
-import { data as posts } from '/../data/posts.data'
-import formatDate from '/../.vitepress/theme/utils/formatDate';
-import getSorted from '/../.vitepress/theme/utils/getSorted';
+import { data as posts } from './blog.data'
+import { formatDate, sortedContentData } from '../.vitepress/theme/utils';
 
 const filteredPosts = posts.filter(post => !post.frontmatter.hidden);
-const sortedPosts = getSorted(filteredPosts);
+const sortedPosts = sortedContentData(filteredPosts);
 </script>
 
 <h1 align="center">Blog</h1>
 <ul>
     <li v-for="post of sortedPosts">
         <strong><a :href="withBase(post.url)">{{ post.frontmatter.title }}</a></strong>
-        <span>{{ formatDate( post.frontmatter.date ) }}</span>
+        <span>{{ formatDate(post.frontmatter.date) }}</span>
     </li>
 </ul>
 

@@ -4,18 +4,22 @@ layout: home
 
 hero:
     name: Decondenser
-    text: Prettify Condensed Text Based on Bracket Placement
-    tagline: Every brace in its place!
+    text: Bracket-Based Text Formatter
+    tagline: Untangle the mess, navigate with success!
     image:
         src: /decondenser-logo-medium.png
     actions:
+        - theme: brand
+          text: Playground
+          link: /playground
+
         - theme: alt
           text: Blog
           link: /blog
 
 features:
     - title: Generic
-      details: Supports any syntax that uses parentheses, square brackets and curly braces by default
+      details: Supports any text that uses parentheses (), square brackets [], and curly braces {} for grouping by default
     - title: Configurable
-      details: Customize the parsing and formatting rules like bracket pairs, indentation, line size, etc.
+      details: Customize parsing and formatting rules like bracket pairs, breakable spaces, punctuation, indentation, line size, etc.
 ---

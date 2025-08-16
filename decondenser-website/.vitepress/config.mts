@@ -1,4 +1,5 @@
 import { defineConfig, HeadConfig } from "vitepress";
+import vite from "./vite.config";
 
 const head: HeadConfig[] = [
     ["link", { rel: "icon", href: `/decondenser-logo-thumb.png` }],
@@ -25,7 +26,7 @@ export default defineConfig({
     srcExclude: ["README.md"],
 
     head,
-
+    vite,
     srcDir,
 
     // https://vitepress.dev/reference/default-theme-config
@@ -54,8 +55,7 @@ export default defineConfig({
               },
 
         nav: [
-            { text: "Guide", link: "/guide/overview" },
-            { text: "Reference", link: "/reference/builder" },
+            { text: "Playground", link: "/playground" },
             { text: "Changelog", link: "/changelog" },
             { text: "Blog", link: "/blog" },
         ],
@@ -63,8 +63,6 @@ export default defineConfig({
         socialLinks: [
             { icon: "github", link: "https://github.com/amredev/decondenser" },
             { icon: "discord", link: "https://decondenser.dev/discord" },
-            { icon: "patreon", link: "https://patreon.com/Veetaha" },
-            { icon: "kofi", link: "https://ko-fi.com/Veetaha" },
         ],
 
         sidebar: {},

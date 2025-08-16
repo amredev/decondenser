@@ -38,10 +38,13 @@
     }
   ],
 
-  "forwardPorts": [5173],
+  "forwardPorts": [5173, 4173],
   "portsAttributes": {
     "5173": {
-      "label": "decondenser-website"
+      "label": "decondenser-website (dev)"
+    },
+    "4173": {
+      "label": "decondenser-website (prod build preview)"
     }
   },
   "otherPortsAttributes": {
