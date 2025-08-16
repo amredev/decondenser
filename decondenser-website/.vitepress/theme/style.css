@@ -1,0 +1,4 @@
+/* Opt-in nowrap via a class */
+.nobr {
+    white-space: nowrap;
+}

@@ -38,9 +38,27 @@
     }
   ],
 
+  "forwardPorts": [5173, 4173],
+  "portsAttributes": {
+    "5173": {
+      "label": "decondenser-website (dev)"
+    },
+    "4173": {
+      "label": "decondenser-website (prod build preview)"
+    }
+  },
+  "otherPortsAttributes": {
+    // Don't rely on auto-inference for forwarded ports, make it reliable.
+    "onAutoForward": "ignore"
+  },
+
   "customizations": {
     "vscode": {
       "settings": {
+        // Listen on `0.0.0.0` on the host machine to allow accessing the site
+        // via the local network, e.g. with a phone connected to the same WiFi
+        "remote.localPortHost": "allInterfaces",
+
         // Use the workspace's version of TS, not the one that comes
         // preinstalled with VSCode
         "typescript.tsdk": "node_modules/typescript/lib",
@@ -91,7 +109,9 @@
         },
 
         // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-        "typescript.tsc.autoDetect": "off"
+        "typescript.tsc.autoDetect": "off",
+
+        "vue.server.includeLanguages": ["vue", "markdown"]
       },
       "extensions": [
         // Rust LSP
@@ -148,6 +168,9 @@
 
         // TOML LSP
         "tamasfe.even-better-toml",
+
+        // Vue LSP
+        "vue.volar",
 
         // Preview generated HTML files
         "ms-vscode.live-server"

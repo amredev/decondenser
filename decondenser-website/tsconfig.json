@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "vueCompilerOptions": {
+    "vitePressExtensions": [".md"]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.mts",
+    "**/*.vue",
+    "**/*.md",
+    ".vitepress/**/*.ts",
+    ".vitepress/**/*.vue"
+  ],
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node"
+  }
+}

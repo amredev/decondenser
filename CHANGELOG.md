@@ -1,9 +1,1 @@
-# Change Log
-
-All notable changes to the "decondenser" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
-
-- Initial release
+See the [changelog](https://decondenser.dev/changelog) page on the website for details.
